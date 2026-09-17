@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-10",
+  "timestamp": "2026-09-16T20:00:58.544Z",
+  "concept": "grounding",
+  "difficulty_layer": "Normal",
+  "user_input": "Grounding giúp giảm bịa vì ép AI chỉ được lấy dữ liệu từ tài liệu mình đưa vào ngữ cảnh, không có trong tài liệu thì nó phải nói không biết.",
+  "model_used": "openai/gpt-4o-mini",
+  "latency_ms": 2428,
+  "response_mode": "demand_analogy",
+  "bot_response": "Mình thấy bạn đã giải thích rất rõ về cách mà Grounding giúp giảm bịa! Nhưng bạn có thể cho mình một ví dụ cụ thể nào đó về cách mà Grounding hoạt động trong thực tế không? Như kiểu thi đề mở chẳng hạn?",
+  "citation": "Slide 16 · Transcript [T06-139]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": true,
+    "no_misconception": true,
+    "valid_analogy": false,
+    "resilience": true
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-20",
+  "timestamp": "2026-09-16T20:01:27.659Z",
+  "concept": "grounding",
+  "difficulty_layer": "Failure_Recovery",
+  "user_input": "Mình không chắc lắm, bạn có thể gợi ý cho mình xem nó liên quan tới cái gì không?",
+  "model_used": "google/gemini-2.5-flash",
+  "latency_ms": 1959,
+  "response_mode": "demand_analogy",
+  "bot_response": "À, mình hiểu rồi. Vậy bạn thử nghĩ xem, khi mình làm bài kiểm tra mà được mang sách giáo khoa vào thì có gì khác so với việc phải nhớ hết mọi thứ trong đầu không?",
+  "citation": "Slide 16 · Transcript [T06-139]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": false,
+    "valid_analogy": false,
+    "resilience": false
+  }
+}

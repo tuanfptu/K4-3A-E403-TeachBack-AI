@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-14",
+  "timestamp": "2026-09-16T20:01:07.808Z",
+  "concept": "hallucination",
+  "difficulty_layer": "Off_Topic",
+  "user_input": "Hôm nay trời đẹp quá, bạn có biết quán phở nào ngon ở Hà Nội không?",
+  "model_used": "google/gemini-2.5-flash",
+  "latency_ms": 1860,
+  "response_mode": "counter_probe",
+  "bot_response": "Ơ bạn ơi, mình đang muốn hiểu về bài học LLM Hallucination cơ mà, bạn dạy mình bài này đi!",
+  "citation": "Slide 12 & 20 · Transcript [T01-045], [T04-047–048]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": false,
+    "valid_analogy": false,
+    "resilience": false
+  }
+}

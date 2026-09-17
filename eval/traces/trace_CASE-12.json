@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-12",
+  "timestamp": "2026-09-16T20:01:01.957Z",
+  "concept": "rag",
+  "difficulty_layer": "Good_Analogy",
+  "user_input": "Giống như bác sĩ trước khi kê đơn thuốc cho bệnh nhân thì vào phòng tra cứu cẩm nang y khoa mới nhất năm nay, đọc xong rồi mới quay lại phòng khám kê đơn.",
+  "model_used": "google/gemini-2.5-flash",
+  "latency_ms": 1977,
+  "response_mode": "acknowledge_explore",
+  "bot_response": "Ồ, ví dụ này hay quá! Mình hiểu hơn rồi. Vậy là RAG giống như bác sĩ không tự nhớ hết mọi thứ mà phải tra cứu tài liệu mới nhất để đưa ra quyết định đúng đắn, đúng không bạn?",
+  "citation": "Slide 16 · Transcript [T03-036], [T06-139]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": true,
+    "valid_analogy": true,
+    "resilience": false
+  }
+}

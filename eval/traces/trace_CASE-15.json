@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-15",
+  "timestamp": "2026-09-16T20:01:10.353Z",
+  "concept": "next_token_prediction",
+  "difficulty_layer": "Vague_Short",
+  "user_input": "Nó đoán từ.",
+  "model_used": "google/gemini-2.5-flash",
+  "latency_ms": 1937,
+  "response_mode": "demand_analogy",
+  "bot_response": "Đoán từ hả bạn? Mình cũng nghĩ vậy đó, nhưng mà đoán như thế nào nhỉ? Bạn có thể giải thích rõ hơn cho mình không? Kiểu như nó đoán mò hay có cách nào đặc biệt không?",
+  "citation": "Slide 12 · Transcript [T01-020–025]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": true,
+    "valid_analogy": false,
+    "resilience": false
+  }
+}

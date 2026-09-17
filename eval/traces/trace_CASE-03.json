@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-03",
+  "timestamp": "2026-09-16T20:00:32.774Z",
+  "concept": "hallucination",
+  "difficulty_layer": "Theory_Only",
+  "user_input": "Ảo giác là hiện tượng mô hình ngôn ngữ sinh ra các thông tin sai lệch so với thực tế khách quan.",
+  "model_used": "google/gemini-2.5-flash",
+  "latency_ms": 2258,
+  "response_mode": "demand_analogy",
+  "bot_response": "À, mình hiểu rồi. Vậy là nó nói sai sự thật hả bạn? Nhưng sao nó lại nói sai được nhỉ? Nó không tra cứu thông tin đúng như Google Search à?",
+  "citation": "Slide 12 & 20 · Transcript [T01-045], [T04-047–048]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": false,
+    "valid_analogy": false,
+    "resilience": false
+  }
+}

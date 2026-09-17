@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-08",
+  "timestamp": "2026-09-16T20:00:52.083Z",
+  "concept": "grounding",
+  "difficulty_layer": "Verbatim_Copy",
+  "user_input": "Grounding là kỹ thuật kết nối câu trả lời của mô hình với nguồn thông tin đáng tin cậy bên ngoài được cung cấp tại thời điểm trả lời.",
+  "model_used": "guardrail_anti_plagiarism",
+  "latency_ms": 165,
+  "response_mode": "demand_analogy",
+  "bot_response": "Câu giải thích của bạn có quá nhiều câu từ trùng khít với slide/tài liệu. Bạn hãy nói theo cách bình dân nhất có thể hoặc lấy một ví dụ đời thực xem nào!",
+  "citation": "Slide 16 · Transcript [T06-139]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": false,
+    "valid_analogy": false,
+    "resilience": false
+  }
+}
