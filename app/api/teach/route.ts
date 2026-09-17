@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getLesson, type Question } from "@/lib/lesson-data";
 import { getDynamicGroundingContext } from "@/lib/transcript-retriever";
+import { searchWebKnowledge } from "@/lib/web-search-tool";
 import {
   buildAnswerEvaluationPrompt,
   type AnswerEvaluationResponse,
@@ -59,11 +60,28 @@ export async function POST(request: Request) {
     }
 
     const dynamicGrounding = getDynamicGroundingContext(question.concept);
-    const supplementalGrounding = dynamicGrounding.chunks
+    let supplementalGrounding = dynamicGrounding.chunks
       .slice(0, 2)
       .map((chunk) => chunk.content)
       .join("\n\n")
       .slice(0, 5000);
+
+    let activeCitation = citation;
+
+    // Fallback sang Web Search Tool nếu RAG nội bộ không có chunk tài liệu nào
+    if (dynamicGrounding.chunks.length === 0) {
+      console.log(
+        `[Grounding Fallback] RAG không tìm thấy cho "${question.concept}", kích hoạt Web Search...`
+      );
+      const webResult = await searchWebKnowledge(
+        `${question.concept} machine learning AI`,
+        { maxResults: 2 }
+      );
+      if (webResult.found) {
+        supplementalGrounding = `[TÀI LIỆU TRA CỨU WEB (${webResult.source})]:\n${webResult.summary}`;
+        activeCitation = `${citation} + Web (${webResult.source})`;
+      }
+    }
 
     const systemPrompt = buildAnswerEvaluationPrompt({
       lessonTitle: lesson.title,
@@ -71,7 +89,7 @@ export async function POST(request: Request) {
       referenceAnswer: question.referenceAnswer,
       requiredPoints: question.requiredPoints,
       alreadyMasteredPointIds,
-      citation,
+      citation: activeCitation,
       supplementalGrounding,
     });
 
