@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-18",
+  "timestamp": "2026-09-16T20:01:19.482Z",
+  "concept": "attention",
+  "difficulty_layer": "Good_Analogy",
+  "user_input": "Giống như khi bạn đọc một cuốn sách bằng bút dạ quang: khi gặp từ 'nó' trong câu, bạn dùng bút tô sáng danh từ được nhắc tới ở 3 câu trước để hiểu 'nó' là ai.",
+  "model_used": "google/gemini-2.5-flash",
+  "latency_ms": 1939,
+  "response_mode": "acknowledge_explore",
+  "bot_response": "À, mình hiểu rồi! Vậy là Self-Attention Mechanism cũng giống như mình dùng bút dạ quang để đánh dấu từ quan trọng, giúp mình hiểu rõ hơn từ 'nó' đang nói về cái gì, dù nó ở xa xa trong bài đúng không bạn?",
+  "citation": "Slide 18 · Transcript [T06-050]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": true,
+    "valid_analogy": true,
+    "resilience": true
+  }
+}

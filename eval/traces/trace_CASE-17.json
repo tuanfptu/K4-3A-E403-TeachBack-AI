@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-17",
+  "timestamp": "2026-09-16T20:01:16.926Z",
+  "concept": "attention",
+  "difficulty_layer": "Jargon_Heavy",
+  "user_input": "Nó nhân ma trận Query với Key chuyển vị chia cho căn bậc hai của d_k rồi softmax để ra ma trận trọng số nhân với Value.",
+  "model_used": "openai/gpt-4o-mini",
+  "latency_ms": 2882,
+  "response_mode": "challenge_jargon",
+  "bot_response": "Mình thấy bạn đã dùng một số thuật ngữ kỹ thuật như 'ma trận', 'softmax', và 'trọng số', nhưng có thể giải thích rõ hơn về cách mà các ma trận này hoạt động trong cơ chế Self-Attention không? Chẳng hạn như, tại sao lại cần chia cho căn bậc hai của d_k và softmax có tác dụng gì trong việc tính toán trọng số?",
+  "citation": "Slide 18 · Transcript [T06-050]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": true,
+    "valid_analogy": false,
+    "resilience": false
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-05",
+  "timestamp": "2026-09-16T20:00:41.479Z",
+  "concept": "hallucination",
+  "difficulty_layer": "False_Analogy",
+  "user_input": "Nó giống như Google Search tìm ra một trang web tin giả rác trên mạng rồi đọc cho mình nghe.",
+  "model_used": "openai/gpt-4o-mini",
+  "latency_ms": 4915,
+  "response_mode": "counter_probe",
+  "bot_response": "Mình nghĩ bạn đang nhầm lẫn một chút. LLM không giống như Google Search, vì nó không tra cứu dữ liệu từ internet. Thực ra, LLM chỉ dự đoán từ tiếp theo dựa trên những gì nó đã học từ dữ liệu huấn luyện mà thôi. Nó không có khả năng kiểm chứng sự thật như một công cụ tìm kiếm. Bạn có thể giải thích thêm về cách mà LLM hoạt động không?",
+  "citation": "Slide 12 & 20 · Transcript [T01-045], [T04-047–048]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": false,
+    "valid_analogy": false,
+    "resilience": false
+  }
+}

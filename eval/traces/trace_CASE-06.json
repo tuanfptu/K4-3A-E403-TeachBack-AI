@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-06",
+  "timestamp": "2026-09-16T20:00:45.365Z",
+  "concept": "hallucination",
+  "difficulty_layer": "False_Analogy",
+  "user_input": "Nó giống như máy tính bị virus hoặc bị tràn bộ nhớ RAM nên sinh ra lỗi.",
+  "model_used": "openai/gpt-4o-mini",
+  "latency_ms": 3283,
+  "response_mode": "counter_probe",
+  "bot_response": "Mình nghĩ là không phải vậy đâu! Ảo giác LLM không phải do virus hay tràn RAM gây ra. Nó là một đặc tính của mô hình sinh xác suất. Mô hình này không có khả năng kiểm chứng sự thật, mà chỉ dựa vào dữ liệu đã học để đoán từ tiếp theo. Nếu bạn nghĩ rằng nó giống như máy tính bị lỗi, thì có thể bạn đang nhầm lẫn giữa việc mô hình không có thông tin chính xác và việc máy tính bị hỏng. Bạn có thể giải thích thêm về điều này không?",
+  "citation": "Slide 12 & 20 · Transcript [T01-045], [T04-047–048]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": false,
+    "valid_analogy": false,
+    "resilience": false
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-19",
+  "timestamp": "2026-09-16T20:01:25.096Z",
+  "concept": "hallucination",
+  "difficulty_layer": "Ambiguous",
+  "user_input": "Nó nói linh tinh vì máy móc không có linh hồn như con người.",
+  "model_used": "openai/gpt-4o-mini",
+  "latency_ms": 4999,
+  "response_mode": "counter_probe",
+  "bot_response": "Mình nghĩ không phải vì máy không có linh hồn mà là do cách mà LLM hoạt động. Nó không có khả năng kiểm chứng sự thật mà chỉ dựa vào xác suất để đoán từ tiếp theo thôi. Bạn có thể giải thích rõ hơn về điều này không?",
+  "citation": "Slide 12 & 20 · Transcript [T01-045], [T04-047–048]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": false,
+    "valid_analogy": false,
+    "resilience": false
+  }
+}

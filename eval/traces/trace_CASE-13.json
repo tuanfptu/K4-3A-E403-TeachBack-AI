@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-13",
+  "timestamp": "2026-09-16T20:01:05.333Z",
+  "concept": "rag",
+  "difficulty_layer": "Jargon_Heavy",
+  "user_input": "Hệ thống sử dụng cosine similarity để truy vấn top-k chunks từ vector database rồi concatenate vào system prompt.",
+  "model_used": "openai/gpt-4o-mini",
+  "latency_ms": 2755,
+  "response_mode": "challenge_jargon",
+  "bot_response": "Bạn ơi, mình không hiểu rõ lắm về từ 'cosine similarity'. Bạn có thể giải thích cho mình từ đó không?",
+  "citation": "Slide 16 · Transcript [T03-036], [T06-139]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": false,
+    "valid_analogy": false,
+    "resilience": false
+  }
+}

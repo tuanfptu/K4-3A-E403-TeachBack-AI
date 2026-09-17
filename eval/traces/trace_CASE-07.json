@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-07",
+  "timestamp": "2026-09-16T20:00:51.304Z",
+  "concept": "hallucination",
+  "difficulty_layer": "Confident_Wrong",
+  "user_input": "Chắc chắn 100% là do tập dữ liệu huấn luyện có dữ liệu sai, chỉ cần lọc sạch dữ liệu và huấn luyện thêm thì mô hình sẽ vĩnh viễn không bao giờ bịa nữa.",
+  "model_used": "openai/gpt-4o-mini",
+  "latency_ms": 5322,
+  "response_mode": "counter_probe",
+  "bot_response": "Mình nghĩ bạn đang hiểu sai về cách mà LLM hoạt động. Dù có lọc sạch dữ liệu, LLM vẫn sẽ có khả năng bịa ra thông tin. Điều này xảy ra vì LLM không kiểm chứng sự thật mà chỉ dự đoán từ tiếp theo dựa trên xác suất. Bạn có thể giải thích thêm về cơ chế này không?",
+  "citation": "Slide 12 & 20 · Transcript [T01-045], [T04-047–048]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": false,
+    "valid_analogy": false,
+    "resilience": false
+  }
+}

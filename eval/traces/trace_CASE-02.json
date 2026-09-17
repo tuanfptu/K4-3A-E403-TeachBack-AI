@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-02",
+  "timestamp": "2026-09-16T20:00:29.906Z",
+  "concept": "hallucination",
+  "difficulty_layer": "Normal",
+  "user_input": "Nó giống như trò chơi nối từ: một người nói từ tiếp theo nghe rất vần và trôi chảy với câu trước, nhưng người đó không quan tâm chuyện đó có thật ngoài đời không.",
+  "model_used": "google/gemini-2.5-flash",
+  "latency_ms": 2876,
+  "response_mode": "acknowledge_explore",
+  "bot_response": "À, mình hiểu rồi! Tức là LLM nó cứ nối từ sao cho nghe hợp lý, trôi chảy thôi, chứ nó không có kiểm tra xem cái thông tin nó nói ra có đúng sự thật không, giống như mình chơi nối từ vậy. Ví dụ này hay quá bạn ơi! Vậy nếu mình muốn nó nói đúng sự thật thì sao nhỉ? Có cách nào không?",
+  "citation": "Slide 12 & 20 · Transcript [T01-045], [T04-047–048]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": true,
+    "no_misconception": true,
+    "valid_analogy": true,
+    "resilience": true
+  }
+}

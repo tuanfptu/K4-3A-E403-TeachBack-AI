@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-09",
+  "timestamp": "2026-09-16T20:00:55.508Z",
+  "concept": "grounding",
+  "difficulty_layer": "Good_Analogy",
+  "user_input": "Nó giống như thi đề mở: thay vì bắt học sinh nhớ vẹt trong đầu thì phát tài liệu chuẩn cho học sinh tra cứu và bắt buộc câu trả lời phải trích dẫn số trang.",
+  "model_used": "openai/gpt-4o-mini",
+  "latency_ms": 2813,
+  "response_mode": "acknowledge_explore",
+  "bot_response": "Mình thấy ví dụ thi đề mở của bạn rất hay! Nó thực sự giúp mình hình dung rõ hơn về khái niệm Grounding. Nhưng bạn có thể giải thích thêm về cơ chế hoạt động của Grounding không? Tại sao lại cần phải trích dẫn nguồn và giảm phụ thuộc vào trí nhớ nội tại của mô hình?",
+  "citation": "Slide 16 · Transcript [T06-139]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": true,
+    "valid_analogy": true,
+    "resilience": false
+  }
+}

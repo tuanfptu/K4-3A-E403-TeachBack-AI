@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-11",
+  "timestamp": "2026-09-16T20:00:59.364Z",
+  "concept": "rag",
+  "difficulty_layer": "Theory_Only",
+  "user_input": "RAG gồm có bước Retrieval để lấy thông tin và bước Generation để sinh câu trả lời.",
+  "model_used": "guardrail_anti_plagiarism",
+  "latency_ms": 217,
+  "response_mode": "demand_analogy",
+  "bot_response": "Câu giải thích của bạn có quá nhiều câu từ trùng khít với slide/tài liệu. Bạn hãy nói theo cách bình dân nhất có thể hoặc lấy một ví dụ đời thực xem nào!",
+  "citation": "Slide 16 · Transcript [T03-036], [T06-139]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": false,
+    "valid_analogy": false,
+    "resilience": false
+  }
+}

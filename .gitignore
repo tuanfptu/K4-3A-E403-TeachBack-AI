@@ -30,6 +30,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -44,3 +45,11 @@ next-env.d.ts
 /.codex/
 /outputs/
 /work/
+
+# Hackathon datasets (confidential - do not commit)
+data/
+*.csv
+
+# Temporary test scripts & build artifacts
+scratch/
+*.tsbuildinfo

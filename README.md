@@ -1,4 +1,6 @@
-# vinext-starter
+# TeachAI — vinext-starter
+
+> 💡 **Hướng dẫn chạy Frontend & Playground**: Vui lòng xem chi tiết tại [app/README.md](app/README.md) để biết cách cấu hình môi trường, khởi chạy và truy cập đúng giao diện Playground (`/playground`).
 
 A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.
 

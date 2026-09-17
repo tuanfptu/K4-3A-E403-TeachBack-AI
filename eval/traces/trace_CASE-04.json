@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-04",
+  "timestamp": "2026-09-16T20:00:35.945Z",
+  "concept": "hallucination",
+  "difficulty_layer": "Jargon_Heavy",
+  "user_input": "Do kiến trúc Transformer tối ưu hóa hàm cross-entropy loss trên phân phối xác suất của latent space nên vector embedding bị trôi dạt dẫn đến ảo giác.",
+  "model_used": "google/gemini-2.5-flash",
+  "latency_ms": 2560,
+  "response_mode": "challenge_jargon",
+  "bot_response": "Ối, bạn ơi, bạn dùng mấy từ như 'Transformer', 'cross-entropy loss', 'latent space', 'vector embedding' nghe lạ quá à. Mấy từ đó nghĩa là gì vậy bạn? Mình chưa được học mấy cái đó nên không hiểu lắm.",
+  "citation": "Slide 12 & 20 · Transcript [T01-045], [T04-047–048]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": false,
+    "valid_analogy": false,
+    "resilience": false
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-16",
+  "timestamp": "2026-09-16T20:01:13.425Z",
+  "concept": "next_token_prediction",
+  "difficulty_layer": "Good_Analogy",
+  "user_input": "Nó giống như tính năng tự động gợi ý từ tiếp theo trên bàn phím điện thoại của bạn, nhưng ở mức độ thông minh và phức tạp hơn rất nhiều.",
+  "model_used": "google/gemini-2.5-flash",
+  "latency_ms": 2463,
+  "response_mode": "acknowledge_explore",
+  "bot_response": "À, mình hiểu rồi! Tức là nó cũng đoán từ tiếp theo như cái bàn phím điện thoại mình hay dùng ấy hả? Nhưng mà nó \"thông minh và phức tạp hơn rất nhiều\" là sao bạn nhỉ? Nó làm được những gì mà bàn phím điện thoại không làm được?",
+  "citation": "Slide 12 · Transcript [T01-020–025]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": false,
+    "no_misconception": true,
+    "valid_analogy": true,
+    "resilience": false
+  }
+}

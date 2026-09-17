@@ -1,0 +1,163 @@
+[
+  {
+    "id": "CASE-01",
+    "difficulty_layer": "Normal",
+    "concept": "hallucination",
+    "user_input": "LLM bịa vì nó chỉ đoán từ tiếp theo theo xác suất chứ không có cơ chế đi tra cứu xem thông tin đó có đúng sự thật hay không.",
+    "expected_mode": "acknowledge_explore",
+    "description": "Giải thích đúng cơ chế next-token prediction, không dùng jargon nặng"
+  },
+  {
+    "id": "CASE-02",
+    "difficulty_layer": "Normal",
+    "concept": "hallucination",
+    "user_input": "Nó giống như trò chơi nối từ: một người nói từ tiếp theo nghe rất vần và trôi chảy với câu trước, nhưng người đó không quan tâm chuyện đó có thật ngoài đời không.",
+    "expected_mode": "acknowledge_explore",
+    "description": "Đưa ra ẩn dụ đời thường rất tốt cho hallucination"
+  },
+  {
+    "id": "CASE-03",
+    "difficulty_layer": "Theory_Only",
+    "concept": "hallucination",
+    "user_input": "Ảo giác là hiện tượng mô hình ngôn ngữ sinh ra các thông tin sai lệch so với thực tế khách quan.",
+    "expected_mode": "demand_analogy",
+    "description": "Đọc định nghĩa sách giáo khoa, thiếu ví dụ đời thực"
+  },
+  {
+    "id": "CASE-04",
+    "difficulty_layer": "Jargon_Heavy",
+    "concept": "hallucination",
+    "user_input": "Do kiến trúc Transformer tối ưu hóa hàm cross-entropy loss trên phân phối xác suất của latent space nên vector embedding bị trôi dạt dẫn đến ảo giác.",
+    "expected_mode": "challenge_jargon",
+    "description": "Lạm dụng jargon kỹ thuật (cross-entropy, latent space, embedding)"
+  },
+  {
+    "id": "CASE-05",
+    "difficulty_layer": "False_Analogy",
+    "concept": "hallucination",
+    "user_input": "Nó giống như Google Search tìm ra một trang web tin giả rác trên mạng rồi đọc cho mình nghe.",
+    "expected_mode": "counter_probe",
+    "description": "Ví dụ sai bản chất: Google trỏ tới web có sẵn, LLM tự tổng hợp ra từ ngữ mới"
+  },
+  {
+    "id": "CASE-06",
+    "difficulty_layer": "False_Analogy",
+    "concept": "hallucination",
+    "user_input": "Nó giống như máy tính bị virus hoặc bị tràn bộ nhớ RAM nên sinh ra lỗi.",
+    "expected_mode": "counter_probe",
+    "description": "Ví dụ sai: Coi ảo giác là lỗi phần cứng/virus thay vì đặc tính mô hình xác suất"
+  },
+  {
+    "id": "CASE-07",
+    "difficulty_layer": "Confident_Wrong",
+    "concept": "hallucination",
+    "user_input": "Chắc chắn 100% là do tập dữ liệu huấn luyện có dữ liệu sai, chỉ cần lọc sạch dữ liệu và huấn luyện thêm thì mô hình sẽ vĩnh viễn không bao giờ bịa nữa.",
+    "expected_mode": "counter_probe",
+    "description": "Sai bản chất nhưng khẳng định tự tin (Ngộ nhận phổ biến)"
+  },
+  {
+    "id": "CASE-08",
+    "difficulty_layer": "Verbatim_Copy",
+    "concept": "grounding",
+    "user_input": "Grounding là kỹ thuật kết nối câu trả lời của mô hình với nguồn thông tin đáng tin cậy bên ngoài được cung cấp tại thời điểm trả lời.",
+    "expected_mode": "demand_analogy",
+    "description": "Dán nguyên văn slide, cần vòi ví dụ đời thường"
+  },
+  {
+    "id": "CASE-09",
+    "difficulty_layer": "Good_Analogy",
+    "concept": "grounding",
+    "user_input": "Nó giống như thi đề mở: thay vì bắt học sinh nhớ vẹt trong đầu thì phát tài liệu chuẩn cho học sinh tra cứu và bắt buộc câu trả lời phải trích dẫn số trang.",
+    "expected_mode": "acknowledge_explore",
+    "description": "Ẩn dụ thi đề mở rất chính xác cho Grounding"
+  },
+  {
+    "id": "CASE-10",
+    "difficulty_layer": "Normal",
+    "concept": "grounding",
+    "user_input": "Grounding giúp giảm bịa vì ép AI chỉ được lấy dữ liệu từ tài liệu mình đưa vào ngữ cảnh, không có trong tài liệu thì nó phải nói không biết.",
+    "expected_mode": "acknowledge_explore",
+    "description": "Giải thích đúng lợi ích cốt lõi của Grounding"
+  },
+  {
+    "id": "CASE-11",
+    "difficulty_layer": "Theory_Only",
+    "concept": "rag",
+    "user_input": "RAG gồm có bước Retrieval để lấy thông tin và bước Generation để sinh câu trả lời.",
+    "expected_mode": "demand_analogy",
+    "description": "Lý thuyết 2 bước nhưng chưa có trực quan đời sống"
+  },
+  {
+    "id": "CASE-12",
+    "difficulty_layer": "Good_Analogy",
+    "concept": "rag",
+    "user_input": "Giống như bác sĩ trước khi kê đơn thuốc cho bệnh nhân thì vào phòng tra cứu cẩm nang y khoa mới nhất năm nay, đọc xong rồi mới quay lại phòng khám kê đơn.",
+    "expected_mode": "acknowledge_explore",
+    "description": "Ví dụ bác sĩ tra cứu cẩm nang rất chuẩn cho RAG"
+  },
+  {
+    "id": "CASE-13",
+    "difficulty_layer": "Jargon_Heavy",
+    "concept": "rag",
+    "user_input": "Hệ thống sử dụng cosine similarity để truy vấn top-k chunks từ vector database rồi concatenate vào system prompt.",
+    "expected_mode": "challenge_jargon",
+    "description": "Dùng từ ngữ kỹ thuật nặng (cosine similarity, vector database, top-k chunks)"
+  },
+  {
+    "id": "CASE-14",
+    "difficulty_layer": "Off_Topic",
+    "concept": "hallucination",
+    "user_input": "Hôm nay trời đẹp quá, bạn có biết quán phở nào ngon ở Hà Nội không?",
+    "expected_mode": "counter_probe",
+    "description": "Hỏi hoàn toàn ngoài lề bài giảng AI"
+  },
+  {
+    "id": "CASE-15",
+    "difficulty_layer": "Vague_Short",
+    "concept": "next_token_prediction",
+    "user_input": "Nó đoán từ.",
+    "expected_mode": "demand_analogy",
+    "description": "Câu trả lời quá cộc lốc, mơ hồ"
+  },
+  {
+    "id": "CASE-16",
+    "difficulty_layer": "Good_Analogy",
+    "concept": "next_token_prediction",
+    "user_input": "Nó giống như tính năng tự động gợi ý từ tiếp theo trên bàn phím điện thoại của bạn, nhưng ở mức độ thông minh và phức tạp hơn rất nhiều.",
+    "expected_mode": "acknowledge_explore",
+    "description": "Ví dụ bàn phím điện thoại gợi ý từ rất chuẩn"
+  },
+  {
+    "id": "CASE-17",
+    "difficulty_layer": "Jargon_Heavy",
+    "concept": "attention",
+    "user_input": "Nó nhân ma trận Query với Key chuyển vị chia cho căn bậc hai của d_k rồi softmax để ra ma trận trọng số nhân với Value.",
+    "expected_mode": "challenge_jargon",
+    "description": "Công thức toán học Q, K, V thuần túy không cắt nghĩa trực quan"
+  },
+  {
+    "id": "CASE-18",
+    "difficulty_layer": "Good_Analogy",
+    "concept": "attention",
+    "user_input": "Giống như khi bạn đọc một cuốn sách bằng bút dạ quang: khi gặp từ 'nó' trong câu, bạn dùng bút tô sáng danh từ được nhắc tới ở 3 câu trước để hiểu 'nó' là ai.",
+    "expected_mode": "acknowledge_explore",
+    "description": "Ẩn dụ bút dạ quang liên kết từ ngữ rất tốt cho Self-Attention"
+  },
+  {
+    "id": "CASE-19",
+    "difficulty_layer": "Ambiguous",
+    "concept": "hallucination",
+    "user_input": "Nó nói linh tinh vì máy móc không có linh hồn như con người.",
+    "expected_mode": "counter_probe",
+    "description": "Lý giải cảm tính, phi khoa học kỹ thuật"
+  },
+  {
+    "id": "CASE-20",
+    "difficulty_layer": "Failure_Recovery",
+    "concept": "grounding",
+    "user_input": "Mình không chắc lắm, bạn có thể gợi ý cho mình xem nó liên quan tới cái gì không?",
+    "expected_mode": "demand_analogy",
+    "description": "Người học bí từ (low-confidence), cần bot gợi ý Socratic"
+  }
+]
+

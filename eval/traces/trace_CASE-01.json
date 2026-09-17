@@ -1,0 +1,19 @@
+{
+  "trace_id": "TRACE-CASE-01",
+  "timestamp": "2026-09-16T20:00:26.423Z",
+  "concept": "hallucination",
+  "difficulty_layer": "Normal",
+  "user_input": "LLM bịa vì nó chỉ đoán từ tiếp theo theo xác suất chứ không có cơ chế đi tra cứu xem thông tin đó có đúng sự thật hay không.",
+  "model_used": "google/gemini-2.5-flash",
+  "latency_ms": 3850,
+  "response_mode": "acknowledge_explore",
+  "bot_response": "À, mình hiểu rồi! Tức là nó giống như mình chơi trò nối từ ấy hả bạn? Cứ từ nào nghe hợp lý, có vẻ đúng ngữ pháp thì mình nói ra thôi, chứ mình đâu có cần biết cái câu chuyện mình đang nối có thật hay không đâu, đúng không?",
+  "citation": "Slide 12 & 20 · Transcript [T01-045], [T04-047–048]",
+  "retrieved_chunks": [],
+  "rubric_checklist": {
+    "mechanism": true,
+    "no_misconception": true,
+    "valid_analogy": true,
+    "resilience": false
+  }
+}
