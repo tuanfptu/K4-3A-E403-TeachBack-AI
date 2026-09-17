@@ -1,4 +1,4 @@
-# AI SPEC — TeachBack AI · Nhóm E403 · Zone 3A
+# AI SPEC — TeachBack AI · Nhóm E403 · Zone 2
 
 **Hướng:** ☑ D — VLearn 
 **Loại:** ☐ Tối ưu tính năng có sẵn · ☑ Tính năng mới
