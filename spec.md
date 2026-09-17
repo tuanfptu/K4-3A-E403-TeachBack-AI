@@ -108,10 +108,10 @@
 
 | Thành viên/contributor | Phần phụ trách thể hiện trong repo |
 |---|---|
-| **Tuan Ha (`tuanfptu`)** | Product integration, UX/UI playground, auth/model selector, điều phối spec và release. |
-| **Lương Quang Huy (`huyluong1910`)** | Backend AI, mining evidence, golden set/evaluation và báo cáo CP3. |
-| **QuocCuongDang** | Lesson flow, giao diện TeachBack và nội dung tương tác. |
-| **LuongToan12** | Grounding lesson source và tích hợp dữ liệu VLearn. |
+| **HA MANH TUAN** | Product integration, UX/UI playground, auth/model selector, điều phối spec và release. |
+| **LUONG QUANG HUY (`huyluong1910`)** | Backend AI, mining evidence, golden set/evaluation và báo cáo CP3. |
+| **DANG QUOC CUONG** | Lesson flow, giao diện TeachBack và nội dung tương tác. |
+| **Luong TOAN** | Grounding lesson source và tích hợp dữ liệu VLearn. |
 
 - **Willing users/validation bonus:** chưa có log validation đủ chuẩn ≥2 người ngoài nhóm trong repo; không khai báo bonus. Bước tiếp theo là giao cùng 4 câu Day 1 cho tối thiểu hai học viên, ghi task/quan sát/quote nguyên văn vào `validation/`.
 - **Multi-prototype:** đã so sánh tutor giải thích trực tiếp, quiz và TeachBack. Chọn TeachBack vì quan sát được lập luận tự do và xử lý trực tiếp pain thiếu probing.
