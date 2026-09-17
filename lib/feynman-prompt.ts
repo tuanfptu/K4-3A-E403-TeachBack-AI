@@ -30,31 +30,36 @@ export interface FeynmanStructuredResponse {
 
 function getInScopeDescription(knowledge: ConceptKnowledge, lessonName?: string): string {
   const isLesson1 =
-    (lessonName && /lesson 1|generative/i.test(lessonName)) ||
-    knowledge.id === "intro_genai";
+    (lessonName && /day 1|lesson 1|foundation|llm|generative/i.test(lessonName)) ||
+    ["d1_foundation", "intro_genai", "hallucination_grounding"].includes(knowledge.id);
 
   const isLesson2 =
-    (lessonName && /lesson 2|hallucination|grounding/i.test(lessonName)) ||
-    ["hallucination_grounding", "hallucination", "grounding", "rag", "next_token_prediction"].includes(knowledge.id);
+    (lessonName && /day 2|lesson 2|xác định bài toán|problem|framing|automation|tự động hoá/i.test(lessonName)) ||
+    ["d2_problem_framing", "problem_framing_automation"].includes(knowledge.id);
 
   if (isLesson1) {
-    return `- Generative AI vs Rule-based: Sự khác biệt giữa mô hình tạo sinh và phần mềm truyền thống chạy theo quy tắc cố định (if-else).
-- Dữ liệu huấn luyện (Training data): Dữ liệu mẫu giúp mô hình học quan hệ xác suất thống kê.
-- Prompt & Ngữ cảnh (Context): Câu lệnh và các ràng buộc hướng dẫn mô hình sinh câu trả lời.
-- Biến thiên ngẫu nhiên (Output variation): Tính xác suất (probabilistic) khiến cùng một prompt có thể cho ra nhiều kết quả.
-- Trách nhiệm & Kiểm chứng con người (Responsible AI / Human verification): Luôn cần con người kiểm tra lại tính chính xác.
-- MỌI TỪ NGỮ VÀ CÁCH DIỄN ĐẠT SAU ĐÂY ĐỀU 100% THUỘC PHẠM VI BÀI HỌC: generative, tạo sinh, rule-based, quy tắc, training data, dữ liệu mẫu, prompt, câu lệnh, context, biến thiên, ngẫu nhiên, xác suất, kiểm chứng, an toàn...`;
+    return `- Bản chất LLM & Next-token prediction: Vòng lặp đoán token có xác suất cao nhất rồi nối vào câu (predict -> append -> rerun), không tự đi tra cứu sự thật.
+- Token (mảnh chữ) & Context Window: Bàn làm việc có hạn của model; nhét đồ ở giữa dễ bị quên (lost in the middle).
+- Attention Mechanism: Mỗi token "nhìn sang" các token khác trong câu để xác định nghĩa theo ngữ cảnh (chữ T trong GPT).
+- Ảo giác LLM (Hallucination): Hiện tượng nói chắc như đúng rồi nhưng bịa sai dữ kiện; sự trôi chảy (fluency) khác sự chính xác (accuracy).
+- Grounding & RAG: Nguyên tắc "Cho tra sổ thay vì bắt nhớ" - trích xuất tài liệu tham chiếu tin cậy đưa vào prompt trước khi sinh câu trả lời.
+- Temperature & Núm vặn độ liều: Điều chỉnh phân bố xác suất chọn token (T=0 ổn định chọn từ chắc nhất, T=1 sáng tạo ngẫu nhiên).
+- MỌI TỪ NGỮ VÀ DIỄN ĐẠT SAU ĐÂY ĐỀU 100% THUỘC PHẠM VI BÀI HỌC:
+  "token", "mảnh chữ", "context", "context window", "bàn làm việc", "next-token", "đoán từ", "xác suất", "attention", "transformer", "ảo giác", "hallucination", "bịa chuyện", "grounding", "rag", "tra sổ", "prompt", "temperature", "núm vặn", "kiểm chứng", "fact-checking"...`;
   }
 
   if (isLesson2) {
-    return `- Ảo giác LLM (Hallucination): Hiện tượng mô hình bịa sai sự thật nhưng nói rất trôi chảy, tự tin (Fluency vs Accuracy).
-- Next-token prediction: Dự đoán từ/token tiếp theo theo phân phối xác suất thống kê, không tự tra cứu sự thật khách quan.
-- Grounding: Neo câu trả lời vào nguồn tài liệu tham chiếu (docs) đáng tin cậy được cung cấp trực tiếp trong ngữ cảnh (context).
-- RAG (Retrieval-Augmented Generation) - Quy trình 2 bước:
-  + Bước 1 - Truy xuất / Trích xuất (Retrieval): Tìm kiếm và trích xuất các đoạn ngữ cảnh (context/chunks) liên quan từ kho tài liệu/văn bản (doc/documents/data).
-  + Bước 2 - Tạo sinh (Generation): Đưa context trích xuất được vào prompt để LLM tổng hợp thành câu trả lời có bằng chứng xác thực.
-- MỌI TỪ NGỮ VÀ DIỄN ĐẠT SAU ĐÂY ĐỀU 100% THUỘC PHẠM VI BÀI HỌC (TUYỆT ĐỐI KHÔNG COI LÀ NGOÀI LỀ HOẶC CODE LINH TINH):
-  "trích xuất", "truy xuất", "retrieval", "context", "ngữ cảnh", "doc", "document", "tài liệu", "kho dữ liệu", "chunks", "prompt", "token", "next-token", "đoán từ", "xác suất", "temperature", "gắn nguồn", "neo dữ liệu", "grounding", "rag", "ảo giác", "bịa chuyện", "kiểm chứng", "fact-checking"...`;
+    return `- Xác định bài toán cho AI (Problem Framing): Khung Double Diamond (Tìm đúng vấn đề trước khi tìm giải pháp, tránh lỗi solution-first).
+- Quick Problem Card: 5 thành tố (Bài toán 1 câu, Đối tượng ảnh hưởng, Quy trình hiện tại 3-7 bước, Nút thắt & Hao phí, Chỉ số thành công Baseline vs Target).
+- Google PAIR Reframe: Đổi từ "Có thể dùng AI làm gì?" sang "Giải quyết thế nào?" và "AI có làm được theo cách độc đáo mà rule-based không làm được?".
+- Khi nào NÊN vs KHÔNG NÊN dùng AI: Dùng AI cho hiểu ngôn ngữ, gợi ý, cá nhân hóa; KHÔNG dùng cho thông tin tĩnh, logic if-else cố định, lỗi sai quá tốn kém.
+- 3 Cấp độ giải pháp (Decision Tree):
+  + Cấp 1: Rule tĩnh / Script (logic if/else 100% cố định, tính thuế, auto-reply template).
+  + Cấp 2: Workflow / LLM Feature (Prompt Chaining, Routing, đổi độ trễ lấy độ chính xác).
+  + Cấp 3: AI Agent (vòng lặp Goal -> Reasoning -> Tools -> Action).
+- Đánh giá & Giám sát con người (Human-in-the-loop / HITL): Xử lý khi AI sai, cân bằng Precision vs Recall, thiết kế ngưỡng hành động (PAIR template).
+- MỌI TỪ NGỮ VÀ DIỄN ĐẠT SAU ĐÂY ĐỀU 100% THUỘC PHẠM VI BÀI HỌC:
+  "bài toán", "problem card", "problem statement", "double diamond", "google pair", "quy trình", "nút thắt", "hao phí", "baseline", "metric", "chỉ số", "tự động hoá", "automation", "automate", "augment", "rule", "luật tĩnh", "workflow", "prompt chaining", "routing", "agent", "hitl", "human in the loop", "giám sát con người", "precision", "recall", "độ chính xác", "độ bao phủ", "false positive", "báo động giả"...`;
   }
 
   return `- Khái niệm cốt lõi: ${knowledge.name} (${knowledge.vietnameseName})

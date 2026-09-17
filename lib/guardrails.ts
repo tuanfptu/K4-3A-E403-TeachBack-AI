@@ -161,27 +161,29 @@ export function detectOutOfScopeMessage(
   let activeLesson = lessonName || conceptName;
   if (!lessonName) {
     if (
+      conceptName.toLowerCase().includes("d1") ||
+      conceptName.toLowerCase().includes("foundation") ||
       conceptName.toLowerCase().includes("generative") ||
-      conceptName.toLowerCase().includes("intro_genai") ||
-      conceptName.toLowerCase().includes("tạo sinh")
+      conceptName.toLowerCase().includes("hallucination")
     ) {
-      activeLesson = "Lesson 1: Introduction to Generative AI";
+      activeLesson = "Day 1: AI & LLM Foundation";
     } else if (
-      conceptName.toLowerCase().includes("hallucination") ||
-      conceptName.toLowerCase().includes("grounding") ||
-      conceptName.toLowerCase().includes("ảo giác")
+      conceptName.toLowerCase().includes("d2") ||
+      conceptName.toLowerCase().includes("problem") ||
+      conceptName.toLowerCase().includes("framing") ||
+      conceptName.toLowerCase().includes("automation")
     ) {
-      activeLesson = "Lesson 2: LLM, Hallucination & Grounding";
+      activeLesson = "Day 2: Xác định bài toán cho AI & Độ tự động hoá";
     }
   }
 
-  const isLesson1 = activeLesson.toLowerCase().includes("lesson 1") || activeLesson.toLowerCase().includes("generative ai");
-  const isLesson2 = activeLesson.toLowerCase().includes("lesson 2") || activeLesson.toLowerCase().includes("hallucination");
+  const isLesson1 = activeLesson.toLowerCase().includes("day 1") || activeLesson.toLowerCase().includes("lesson 1") || activeLesson.toLowerCase().includes("foundation");
+  const isLesson2 = activeLesson.toLowerCase().includes("day 2") || activeLesson.toLowerCase().includes("lesson 2") || activeLesson.toLowerCase().includes("bài toán") || activeLesson.toLowerCase().includes("problem");
 
   const lessonFocusMsg = isLesson1
-    ? "Bài này chúng mình chỉ tập trung vào mô hình sinh, dữ liệu huấn luyện, vai trò của prompt, biến thiên ngẫu nhiên và trách nhiệm khi dùng AI thôi."
+    ? "Bài này chúng mình tập trung vào cơ chế bên trong LLM: next-token prediction, context window, ảo giác hallucination và Grounding/RAG."
     : isLesson2
-    ? "Bài này chúng mình chỉ tập trung vào Ảo giác LLM, Grounding, RAG và kiểm chứng nguồn thôi."
+    ? "Bài này chúng mình tập trung vào Quick Problem Card, Google PAIR ('Can AI solve this in a unique way?'), 3 cấp độ Rule vs Workflow vs Agent, và Human-in-the-loop (HITL)."
     : "Bài này chúng mình chỉ tập trung vào kiến thức trong bài thôi.";
 
   // 1. Danh sách các mẫu câu hỏi lạc đề kinh điển (ăn uống, thời tiết, giải toán phổ thông, tin tức, làm thơ...)
@@ -208,19 +210,19 @@ export function detectOutOfScopeMessage(
 
   // 2. TỪ KHÓA BÀI HỌC VÀ FAST-TRACK
   const lesson1Keywords = [
-    "generative", "generative ai", "tạo sinh", "mô hình sinh", "rule-based",
-    "luật cố định", "quy tắc", "training data", "dữ liệu huấn luyện", "dữ liệu mẫu",
-    "prompt", "prompting", "câu lệnh", "variation", "biến thiên", "output variation",
-    "responsible", "trách nhiệm", "kiểm chứng", "kiểm chứng con người",
-    "kiểm chứng thông tin", "human verification", "ai", "thông tin từ ai", "phần mềm"
+    "token", "mảnh chữ", "context", "context window", "bàn làm việc", "next-token", "next token",
+    "đoán từ", "xác suất", "predict", "attention", "transformer", "ảo giác", "hallucination",
+    "bịa", "bịa chuyện", "bịa thông tin", "grounding", "rag", "tra sổ", "retrieval", "truy xuất",
+    "trích xuất", "tài liệu", "doc", "document", "kho dữ liệu", "prompt", "temperature",
+    "núm vặn", "kiểm chứng", "fact-checking", "llm", "ai", "thông tin từ ai", "generative"
   ];
   const lesson2Keywords = [
-    "hallucination", "ảo giác", "bịa", "bịa chuyện", "bịa thông tin", "grounding",
-    "neo dữ liệu", "rag", "retrieval", "truy xuất", "trích xuất", "xác thực",
-    "fact-checking", "kiểm chứng", "kiểm chứng nguồn", "kiểm chứng thông tin",
-    "kiểm tra thông tin", "context", "ngữ cảnh", "doc", "document", "tài liệu",
-    "kho dữ liệu", "token", "next-token", "next token", "xác suất", "đoán từ",
-    "nguồn", "thông tin từ ai", "chính xác", "trôi chảy"
+    "bài toán", "problem card", "problem statement", "quick card", "double diamond", "google pair",
+    "pair", "reframe", "actor", "workflow", "quy trình", "nút thắt", "bottleneck", "hao phí",
+    "baseline", "target", "metric", "chỉ số", "tự động hoá", "automation", "automate", "augment",
+    "rule", "luật tĩnh", "script", "prompt chaining", "routing", "agent", "ai agent", "hitl",
+    "human in the loop", "giám sát con người", "giám sát", "precision", "recall", "độ chính xác",
+    "độ bao phủ", "false positive", "false negative", "báo động giả", "ai"
   ];
 
   // FAST-TRACK: Nếu câu nói chứa bất kỳ thuật ngữ nào thuộc bài học hiện tại -> 100% IN-SCOPE

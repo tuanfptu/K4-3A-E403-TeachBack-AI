@@ -33,9 +33,9 @@ export async function POST(request: Request) {
     const lessonName =
       body.lesson_name ||
       (body.lesson_id === 1
-        ? "Lesson 1: Introduction to Generative AI"
+        ? "Day 1: AI & LLM Foundation"
         : body.lesson_id === 2
-        ? "Lesson 2: LLM, Hallucination & Grounding"
+        ? "Day 2: Xác định bài toán cho AI & Độ tự động hoá"
         : undefined);
 
     if (!userMessage && !isHintRequested) {

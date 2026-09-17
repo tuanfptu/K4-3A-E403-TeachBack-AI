@@ -138,47 +138,105 @@ export const KNOWLEDGE_BANK: Record<string, ConceptKnowledge> = {
       "Giống như tăng âm lượng tai nghe để nghe rõ hơn."
     ]
   },
-  intro_genai: {
-    id: "intro_genai",
-    name: "Introduction to Generative AI",
-    vietnameseName: "Lesson 1: Giới thiệu về Generative AI",
+  d1_foundation: {
+    id: "d1_foundation",
+    name: "Day 1: AI & LLM Foundation",
+    vietnameseName: "Day 1: AI & LLM Foundation (Cơ chế sinh & Ảo giác)",
     lecture: "Day 1: AI & LLM Foundation",
-    citations: "Slides 3–17 · Transcript [T04-013–015]",
-    slide: 4,
-    coreDefinition: "Hệ thống AI tạo sinh (Generative AI) học các phân phối xác suất và mối quan hệ từ dữ liệu huấn luyện để tự tổng hợp ra nội dung mới dựa trên ngữ cảnh và ràng buộc của prompt, khác với phần mềm truyền thống chạy theo luật cố định.",
+    citations: "d1-slide-hackathon.pdf (Slide 10–20) · Transcript [T04-047–048], [T06-139]",
+    slide: 20,
+    coreDefinition: "LLM dự đoán token tiếp theo theo xác suất thống kê (predict → append → rerun) trong cửa sổ ngữ cảnh (context window) có hạn. Vì tối ưu cho câu nghe trôi chảy hợp lý chứ không tự kiểm chứng sự thật nên LLM dễ bị ảo giác (hallucination). Giải pháp cốt lõi là Grounding và RAG: cho AI tra cứu tài liệu tham chiếu (cho tra sổ) thay vì bắt nhớ.",
     keyPoints: [
-      "Generative vs. Rule-based: Phần mềm truyền thống thực thi quy tắc cố định (if-else); Generative AI tự sáng tạo nội dung mới dựa trên quy luật học được.",
-      "Training data: Dữ liệu huấn luyện đóng vai trò các ví dụ mẫu để mô hình học quan hệ thống kê, không phải kho dữ liệu tra cứu sao chép nguyên văn.",
-      "Prompting: Ngữ cảnh và các ràng buộc cụ thể trong prompt giúp định hướng mô hình sinh câu trả lời đúng mục đích.",
-      "Output variation: Quá trình sinh mang tính xác suất (Probabilistic generation), nên cùng một prompt có thể cho ra các câu trả lời khác nhau.",
-      "Responsible use: Luôn cần sự kiểm chứng của con người (Human verification) đối với các thông tin quan trọng trước khi sử dụng."
+      "Token & Context Window: Model không đọc từ nguyên vẹn mà đọc mảnh token. Context window là bàn làm việc có hạn (Slide 13-14).",
+      "Next-token prediction: Vòng lặp đoán token có xác suất cao nhất nối vào ngữ cảnh rồi đoán tiếp, không tự đi kiểm chứng chân lý (Slide 11-12).",
+      "Attention Mechanism: Cho phép mỗi từ nhìn sang các từ quan trọng khác trong câu để hiểu nghĩa theo ngữ cảnh (Slide 15).",
+      "Ảo giác LLM (Hallucination): Nói chắc như đúng rồi nhưng bịa sai dữ kiện; trôi chảy (fluency) không đồng nghĩa với chính xác (accuracy) (Slide 20).",
+      "Grounding & RAG: Nguyên tắc 'Cho tra sổ thay vì bắt nhớ' - trích xuất tài liệu tin cậy đưa vào prompt trước khi sinh câu trả lời (Slide 16)."
     ],
     commonMisconceptions: [
-      "Nghĩ rằng Generative AI là phần mềm viết sẵn câu trả lời theo các quy tắc cố định.",
-      "Nghĩ rằng mô hình đi copy paste nguyên văn một câu có sẵn trong cơ sở dữ liệu.",
-      "Tin rằng cùng một câu prompt thì máy tính bắt buộc phải in ra kết quả y hệt nhau 100% mọi lần."
+      "Nghĩ rằng LLM tra cứu cơ sở dữ liệu như Google Search.",
+      "Nghĩ rằng nếu train thêm nhiều dữ liệu thì mô hình sẽ 100% hết ảo giác.",
+      "Nghĩ rằng context window càng dài thì nhét bao nhiêu tài liệu vào giữa cũng đọc được hết."
     ],
     sampleGoodAnalogies: [
-      "Giống như một họa sĩ học vẽ: sau khi quan sát hàng triệu bức tranh phong cảnh, họa sĩ tự vẽ một bức tranh mới toanh chưa từng có trong lịch sử, chứ không phải đi photocopy lại một bức tranh cũ.",
-      "Giống như đầu bếp sáng tạo món mới dựa trên kiến thức về các hương vị đã học, thay vì chỉ nấu đúng theo một công thức đóng hộp cố định."
+      "Giống như học sinh chém gió lưu loát trong giờ vấn đáp: nhớ mang máng từ ngữ nên ghép lại rất trôi chảy dù không nắm bản chất sự thật.",
+      "Grounding giống như thi đề mở (Open-book exam): giám thị phát tài liệu chuẩn và yêu cầu chỉ được trả lời dựa trên cuốn sách đó."
     ],
     sampleFalseAnalogies: [
-      "Giống như lệnh tìm kiếm Google Search trả về link bài viết có sẵn."
+      "Giống như máy tính bị nhiễm virus hoặc tràn RAM."
+    ]
+  },
+  d2_problem_framing: {
+    id: "d2_problem_framing",
+    name: "Day 2: Xác định bài toán cho AI & Mức độ tự động hoá",
+    vietnameseName: "Day 2: Xác định bài toán cho AI (Google PAIR & 3 Cấp độ)",
+    lecture: "Day 2: Problem Framing & Automation",
+    citations: "d2-slide-hackathon.pdf (Slide 8–24) · Transcript [T01-015], [T02-024], [T03-050]",
+    slide: 9,
+    coreDefinition: "Xác định bài toán cho AI bắt đầu bằng việc làm rõ Problem Statement (bài toán, đối tượng, quy trình, nút thắt, chỉ số thành công) và tự vấn theo Google PAIR: 'Liệu AI có giải quyết bài toán này theo cách độc đáo mà rule-based không làm được?'. Lựa chọn cấp độ giải pháp từ đơn giản đến phức tạp (Cấp 1: Rule tĩnh, Cấp 2: Workflow/Prompt Chaining, Cấp 3: Agent) và thiết kế cơ chế giám sát con người (Human-in-the-loop / HITL) khi AI đoán sai.",
+    keyPoints: [
+      "Google PAIR Reframe: Đổi câu hỏi từ 'Có thể dùng AI làm gì?' sang 'Làm sao giải quyết vấn đề này?' và 'AI có giải quyết theo cách độc đáo không?' (Slide 8).",
+      "Quick Problem Card: Khung 5 yếu tố định hình bài toán: Problem, Actor, Workflow, Bottleneck & Impact, Success Metric (Slide 9-10).",
+      "Khi nào NÊN vs KHÔNG NÊN dùng AI: Dùng AI cho hiểu ngôn ngữ, gợi ý, cá nhân hóa; KHÔNG dùng AI cho thông tin tĩnh, logic if-else cố định, hoặc lỗi sai quá tốn kém (Slide 14-15).",
+      "3 Cấp độ giải pháp (Decision Tree): Cấp 1 (Rule tĩnh / if-else 100%), Cấp 2 (Workflow / Prompt Chaining / Routing), Cấp 3 (AI Agent tự động chia bước) (Slide 17-21).",
+      "Giám sát con người & Trade-off (HITL): Thiết kế ngưỡng hành động (PAIR template), cân bằng Precision vs Recall và xử lý các ca AI đoán sai (False Positive / False Negative) (Slide 22-25)."
+    ],
+    commonMisconceptions: [
+      "Nghĩ rằng bài toán nào cũng phải dùng LLM hoặc Agent mới là xịn (Solution-first).",
+      "Nghĩ rằng AI tự động hóa 100% không cần con người kiểm soát (bỏ qua Human-in-the-loop).",
+      "Nhầm lẫn giữa Rule-based (logic cố định) và Workflow AI (chuỗi bước có LLM)."
+    ],
+    sampleGoodAnalogies: [
+      "Giống như bác sĩ chẩn đoán bệnh: AI đóng vai trò trợ lý đọc phim X-quang gợi ý vùng nghi vấn (Cấp độ 2 Workflow / Copilot), nhưng bác sĩ chính vẫn là người ký tên quyết định phác đồ điều trị (Human-in-the-loop).",
+      "Giống như hộp số xe: đường bằng phẳng dễ đi thì dùng số tự động (Rule tĩnh), đường gập ghềnh phức tạp mới cần tài xế can thiệp và điều chỉnh tay lái linh hoạt."
+    ],
+    sampleFalseAnalogies: [
+      "Cứ giao hết quyền cho AI làm tự động từ A-Z như máy bán hàng tự động không bao giờ hỏng."
+    ]
+  },
+  // Backward-compatible aliases
+  intro_genai: {
+    id: "intro_genai",
+    name: "Day 1: AI & LLM Foundation",
+    vietnameseName: "Day 1: AI & LLM Foundation (Cơ chế sinh & Ảo giác)",
+    lecture: "Day 1: AI & LLM Foundation",
+    citations: "d1-slide-hackathon.pdf (Slide 10–20) · Transcript [T04-047–048], [T06-139]",
+    slide: 20,
+    coreDefinition: "LLM dự đoán token tiếp theo theo xác suất thống kê (predict → append → rerun) trong cửa sổ ngữ cảnh (context window) có hạn. Vì tối ưu cho câu nghe trôi chảy hợp lý chứ không tự kiểm chứng sự thật nên LLM dễ bị ảo giác (hallucination). Giải pháp cốt lõi là Grounding và RAG: cho AI tra cứu tài liệu tham chiếu (cho tra sổ) thay vì bắt nhớ.",
+    keyPoints: [
+      "Token & Context Window: Model không đọc từ nguyên vẹn mà đọc mảnh token. Context window là bàn làm việc có hạn (Slide 13-14).",
+      "Next-token prediction: Vòng lặp đoán token có xác suất cao nhất nối vào ngữ cảnh rồi đoán tiếp, không tự đi kiểm chứng chân lý (Slide 11-12).",
+      "Attention Mechanism: Cho phép mỗi từ nhìn sang các từ quan trọng khác trong câu để hiểu nghĩa theo ngữ cảnh (Slide 15).",
+      "Ảo giác LLM (Hallucination): Nói chắc như đúng rồi nhưng bịa sai dữ kiện; trôi chảy (fluency) không đồng nghĩa với chính xác (accuracy) (Slide 20).",
+      "Grounding & RAG: Nguyên tắc 'Cho tra sổ thay vì bắt nhớ' - trích xuất tài liệu tin cậy đưa vào prompt trước khi sinh câu trả lời (Slide 16)."
+    ],
+    commonMisconceptions: [
+      "Nghĩ rằng LLM tra cứu cơ sở dữ liệu như Google Search.",
+      "Nghĩ rằng nếu train thêm nhiều dữ liệu thì mô hình sẽ 100% hết ảo giác.",
+      "Nghĩ rằng context window càng dài thì nhét bao nhiêu tài liệu vào giữa cũng đọc được hết."
+    ],
+    sampleGoodAnalogies: [
+      "Giống như học sinh chém gió lưu loát trong giờ vấn đáp: nhớ mang máng từ ngữ nên ghép lại rất trôi chảy dù không nắm bản chất sự thật.",
+      "Grounding giống như thi đề mở (Open-book exam): giám thị phát tài liệu chuẩn và yêu cầu chỉ được trả lời dựa trên cuốn sách đó."
+    ],
+    sampleFalseAnalogies: [
+      "Giống như máy tính bị nhiễm virus hoặc tràn RAM."
     ]
   },
   hallucination_grounding: {
     id: "hallucination_grounding",
-    name: "LLM, Hallucination & Grounding",
-    vietnameseName: "Lesson 2: LLM, Ảo giác & Grounding",
+    name: "Day 1: AI & LLM Foundation",
+    vietnameseName: "Day 1: AI & LLM Foundation (Cơ chế sinh & Ảo giác)",
     lecture: "Day 1: AI & LLM Foundation",
-    citations: "Slides 12 & 20 · Transcript [T01-045], [T04-047–048], [T06-139]",
+    citations: "d1-slide-hackathon.pdf (Slide 10–20) · Transcript [T04-047–048], [T06-139]",
     slide: 20,
-    coreDefinition: "LLM ghép các token tiếp theo theo xác suất thống kê nên có thể sinh câu trả lời rất trôi chảy nhưng bịa sai sự thật (Ảo giác). Kỹ thuật Grounding và RAG neo câu trả lời vào tài liệu tham chiếu tin cậy trực tiếp trong context để loại bỏ ảo giác.",
+    coreDefinition: "LLM dự đoán token tiếp theo theo xác suất thống kê (predict → append → rerun) trong cửa sổ ngữ cảnh (context window) có hạn. Vì tối ưu cho câu nghe trôi chảy hợp lý chứ không tự kiểm chứng sự thật nên LLM dễ bị ảo giác (hallucination). Giải pháp cốt lõi là Grounding và RAG: cho AI tra cứu tài liệu tham chiếu (cho tra sổ) thay vì bắt nhớ.",
     keyPoints: [
-      "Next-token prediction: LLM chỉ ghép từ tiếp theo có xác suất cao nhất, không tự kiểm chứng sự thật khách quan tại thời điểm sinh.",
-      "Fluency vs. Accuracy: Sự trôi chảy tự tin không đồng nghĩa với tính chính xác của dữ kiện.",
-      "Grounding: Neo câu trả lời vào nguồn tài liệu tham chiếu (docs) tin cậy được cung cấp trực tiếp trong ngữ cảnh (context).",
-      "RAG (Retrieval-Augmented Generation): Quy trình 2 bước tách biệt: Bước 1 Truy xuất / Trích xuất (Retrieval) các đoạn ngữ cảnh (context/chunks) liên quan từ kho tài liệu/văn bản (doc/documents); Bước 2 Tạo sinh (Generation) đưa context vào prompt để LLM tổng hợp thành câu trả lời."
+      "Token & Context Window: Model không đọc từ nguyên vẹn mà đọc mảnh token. Context window là bàn làm việc có hạn (Slide 13-14).",
+      "Next-token prediction: Vòng lặp đoán token có xác suất cao nhất nối vào ngữ cảnh rồi đoán tiếp, không tự đi kiểm chứng chân lý (Slide 11-12).",
+      "Attention Mechanism: Cho phép mỗi từ nhìn sang các từ quan trọng khác trong câu để hiểu nghĩa theo ngữ cảnh (Slide 15).",
+      "Ảo giác LLM (Hallucination): Nói chắc như đúng rồi nhưng bịa sai dữ kiện; trôi chảy (fluency) không đồng nghĩa với chính xác (accuracy) (Slide 20).",
+      "Grounding & RAG: Nguyên tắc 'Cho tra sổ thay vì bắt nhớ' - trích xuất tài liệu tin cậy đưa vào prompt trước khi sinh câu trả lời (Slide 16)."
     ],
     commonMisconceptions: [
       "Nghĩ rằng LLM tra cứu cơ sở dữ liệu như Google Search.",
@@ -186,7 +244,7 @@ export const KNOWLEDGE_BANK: Record<string, ConceptKnowledge> = {
       "Đồng nhất Grounding/RAG với Fine-tuning mô hình."
     ],
     sampleGoodAnalogies: [
-      "Giống như học sinh chém gió lưu loát trong giờ vấn đáp: nhớ mang máng từ ngữ nên ghép lại rất hay dù không nắm bản chất.",
+      "Giống như học sinh chém gió lưu loát trong giờ vấn đáp: nhớ mang máng từ ngữ nên ghép lại rất trôi chảy dù không nắm bản chất.",
       "Grounding giống như thi đề mở (Open-book exam): giám thị phát tài liệu chuẩn và yêu cầu chỉ được trả lời dựa trên cuốn sách đó."
     ],
     sampleFalseAnalogies: [
