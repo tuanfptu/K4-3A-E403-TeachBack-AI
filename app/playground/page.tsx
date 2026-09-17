@@ -19,6 +19,7 @@ import {
   Lightbulb,
   LoaderCircle,
   LockKeyhole,
+  LogOut,
   Mic,
   MicOff,
   Plus,
@@ -36,6 +37,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { getLesson } from "@/lib/lesson-data";
+import { AuthModal } from "@/components/auth-modal";
+import { auth, signOut, type User } from "@/lib/firebase";
 
 // =========================================================================
 // 1. DATA CONTRACTS & LESSON DEFINITIONS
@@ -355,6 +358,43 @@ export default function TeachAIFlowPlayground() {
     if (typeof window !== "undefined") {
       localStorage.setItem("teachback_selected_model", modelId);
     }
+  }
+
+  // Firebase Auth State & Gatekeeper
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [pendingLessonId, setPendingLessonId] = useState<number | null>(null);
+  const [authModalReason, setAuthModalReason] = useState<string>("");
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      // Chỉ coi người dùng là đã đăng nhập nếu email đã được xác nhận (hoặc tài khoản Google)
+      if (user && user.emailVerified) {
+        setCurrentUser(user);
+      } else {
+        setCurrentUser(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  async function handleSignOut() {
+    try {
+      await signOut(auth);
+      setCurrentUser(null);
+    } catch (err) {
+      console.error("[Sign Out Error]:", err);
+    }
+  }
+
+  function handleLessonSelect(lessonId: number) {
+    if (!currentUser || !currentUser.emailVerified) {
+      setPendingLessonId(lessonId);
+      setAuthModalReason("Vui lòng đăng nhập để bắt đầu phiên học TeachBack.");
+      setAuthModalOpen(true);
+      return;
+    }
+    startSession(lessonId);
   }
 
   // Slide & Scorecard modals
@@ -1009,6 +1049,12 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                 {getModelIcon(selectedModel)}
                 <span>{getModelDisplayName(selectedModel)}</span>
               </button>
+              {currentUser && (
+                <div className="hidden lg:flex items-center gap-1.5 rounded-full bg-white/70 px-2.5 py-1 text-xs font-semibold text-[#333333] border border-black/5">
+                  <span className="size-1.5 rounded-full bg-emerald-500" />
+                  <span className="max-w-[120px] truncate">{currentUser.displayName || currentUser.email?.split("@")[0]}</span>
+                </div>
+              )}
               <button
                 onClick={() => setScreen("lessons")}
                 className="btn-dark"
@@ -1018,11 +1064,55 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <span className="badge">
+            <div className="flex items-center gap-2.5">
+              <span className="badge hidden md:inline-flex">
                 <span className="badge__tag">TeachBack</span>
                 <span>Learn by explaining</span>
               </span>
+
+              {/* Header Auth: Profile đã xác thực hoặc Nút Đăng nhập */}
+              {currentUser ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 rounded-full bg-white/90 border border-black/10 px-2.5 py-1 text-xs font-semibold shadow-xs">
+                    {currentUser.photoURL ? (
+                      <img
+                        src={currentUser.photoURL}
+                        alt={currentUser.displayName || "Avatar"}
+                        className="size-5 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex size-5 items-center justify-center rounded-full bg-zinc-800 text-[10px] font-bold text-white uppercase">
+                        {(currentUser.displayName || currentUser.email || "U")[0]}
+                      </div>
+                    )}
+                    <span className="max-w-[120px] truncate text-zinc-800 font-medium">
+                      {currentUser.displayName || currentUser.email?.split("@")[0]}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="flex items-center gap-1.5 rounded-full bg-black/5 hover:bg-black/10 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-900 transition cursor-pointer"
+                    title="Đăng xuất khỏi tài khoản"
+                  >
+                    <LogOut className="size-3" />
+                    <span>Đăng xuất</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthModalReason("");
+                    setAuthModalOpen(true);
+                  }}
+                  className="btn-dark cursor-pointer"
+                  style={{ padding: "8px 18px", fontSize: "12.5px" }}
+                >
+                  Đăng nhập
+                </button>
+              )}
             </div>
           )}
         </header>
@@ -1053,8 +1143,8 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                 {TEACH_LESSONS.map((lesson) => (
                   <div
                     key={lesson.id}
-                    onClick={() => startSession(lesson.id)}
-                    className="glass-box rounded-[20px] p-5 cursor-pointer hover:bg-white/60 transition-all hover:scale-[1.01] flex flex-col justify-between"
+                    onClick={() => handleLessonSelect(lesson.id)}
+                    className="glass-box rounded-[20px] p-5 cursor-pointer hover:bg-white/60 transition-all hover:scale-[1.01] flex flex-col justify-between group"
                   >
                     <div>
                       <div className="flex items-center justify-between text-xs font-bold text-[#666666] mb-1">
@@ -1074,7 +1164,15 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                         ⏱️ {lesson.time}
                       </span>
                       <span className="text-xs font-semibold text-[#111111] flex items-center gap-1 group-hover:translate-x-0.5 transition">
-                        Bắt đầu <ArrowRight className="size-3.5" />
+                        {!currentUser ? (
+                          <span className="flex items-center gap-1.5 text-zinc-500 bg-black/[0.04] px-2.5 py-1 rounded-lg border border-black/5 text-[11px] font-medium">
+                            <LockKeyhole className="size-3 text-zinc-400" /> Bắt đầu học
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-emerald-700">
+                            Bắt đầu <ArrowRight className="size-3.5" />
+                          </span>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -1888,6 +1986,23 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* ================================================================= */}
+        {/* MODAL 3: FIREBASE AUTHENTICATION & GMAIL VERIFICATION             */}
+        {/* ================================================================= */}
+        <AuthModal
+          open={authModalOpen}
+          onOpenChange={setAuthModalOpen}
+          reasonMessage={authModalReason}
+          onSuccess={(user) => {
+            setCurrentUser(user);
+            if (pendingLessonId !== null) {
+              const id = pendingLessonId;
+              setPendingLessonId(null);
+              startSession(id);
+            }
+          }}
+        />
       </div>
     </div>
   );
