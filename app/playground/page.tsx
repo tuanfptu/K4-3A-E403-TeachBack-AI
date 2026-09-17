@@ -2,24 +2,22 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft,
   ArrowRight,
   BookOpen,
   Bot,
   Check,
   CheckCircle2,
-  Copy,
+  ChevronDown,
   ExternalLink,
   FileText,
   Lightbulb,
   LoaderCircle,
+  LockKeyhole,
   Mic,
   MicOff,
   Plus,
   Send,
-  Sparkles,
   UserRound,
-  X,
 } from "lucide-react";
 import {
   Dialog,
@@ -28,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { getLesson } from "@/lib/lesson-data";
 
 // =========================================================================
 // 1. DATA CONTRACTS & LESSON DEFINITIONS
@@ -38,13 +37,25 @@ export type Phase = "answering" | "loading" | "understood";
 
 export interface TeachAPIResponse {
   bot_response?: string;
-  response_mode?:
-    | "acknowledge_explore"
-    | "demand_analogy"
-    | "challenge_jargon"
-    | "counter_probe"
-    | "mastered";
+  response_mode?: "partial" | "needs_revision" | "mastered";
   understanding_level?: 1 | 2 | 3;
+  question_mastered?: boolean;
+  mastered_point_ids?: string[];
+  missing_point_ids?: string[];
+  hint?: string | null;
+  evaluation?: {
+    correct_points: Array<{
+      id: string;
+      evidence: string;
+      feedback: string;
+    }>;
+    incorrect_claims: Array<{
+      claim: string;
+      correction: string;
+    }>;
+    newly_mastered_point_ids: string[];
+    invalidated_point_ids: string[];
+  };
   feedback_summary?: {
     what_you_did_well: string;
     missing_or_vague: string;
@@ -66,6 +77,7 @@ export interface ChatTurn {
   content: string;
   response_mode?: TeachAPIResponse["response_mode"];
   feedback_summary?: TeachAPIResponse["feedback_summary"];
+  evaluation?: TeachAPIResponse["evaluation"];
   citation?: string;
   isTopicSwitch?: boolean;
   switchTarget?: string;
@@ -108,13 +120,13 @@ export const TEACH_LESSONS: LessonItem[] = [
       "Bên trong LLM: cơ chế next-token prediction, context window (bàn làm việc có hạn), ảo giác (hallucination) và giải pháp Grounding / RAG.",
     time: "10–15 min",
     slideNumber: 20,
-    slideRange: "Day 1 · Slide 10–20",
+    slideRange: "Day 1 · Slide 11–20 & 29",
     topic: "Next-token prediction, Context window, Attention, Hallucination & Grounding / RAG",
     takeaway:
       "LLM dự đoán từ tiếp theo theo xác suất, không tự tra cứu sự thật. Cho AI tra sổ (Grounding/RAG) thay vì bắt nhớ.",
-    citationCode: "d1-slide-hackathon.pdf (Slide 10–20) · Transcript [T04-047], [T06-139]",
+    citationCode: "d1-slide-hackathon.pdf (Slide 11–20 & 29) · Transcript V Learn",
     initialPrompt:
-      "Chào bạn! Mình là học sinh AI, 15 tuổi nè 😄 Hôm nay bạn sẽ dạy mình bài Day 1: AI & LLM Foundation đúng không? Mình sẵn sàng lắng nghe rồi, bạn muốn bắt đầu từ đâu thì cứ giảng cho mình nghe nhé!",
+      "Trả lời câu hỏi bằng cách hiểu của bạn. Không cần dùng đúng từng chữ trong slide: hệ thống sẽ ghi nhận riêng phần đúng, sửa phần sai và chỉ gợi ý những ý còn thiếu.",
     bottlenecks: [
       {
         id: "next_token",
@@ -153,13 +165,13 @@ export const TEACH_LESSONS: LessonItem[] = [
       "Từ yêu cầu mơ hồ đến Problem Statement rõ ràng: Google PAIR ('Can AI solve this in a unique way?'), 3 Cấp độ Rule vs Workflow vs Agent, và Human-in-the-loop (HITL).",
     time: "10–15 min",
     slideNumber: 9,
-    slideRange: "Day 2 · Slide 8–24",
+    slideRange: "Day 2 · Slide 8–26",
     topic: "Quick Problem Card, Google PAIR, 3 Cấp độ giải pháp (Rule/Workflow/Agent), Human-in-the-loop (HITL)",
     takeaway:
       "Hỏi về bài toán trước, về AI sau. Chọn cấp độ giải pháp từ Rule tĩnh, Workflow đến Agent và luôn thiết kế cơ chế giám sát con người (HITL).",
-    citationCode: "d2-slide-hackathon.pdf (Slide 8–24) · Transcript [T01-015], [T02-024], [T03-050]",
+    citationCode: "d2-slide-hackathon.pdf (Slide 8–26) · Transcript V Learn",
     initialPrompt:
-      "Chào bạn! Mình là học sinh AI, 15 tuổi 😄 Nghe nói hôm nay bạn sẽ dạy mình bài Day 2: Xác định bài toán cho AI và Mức độ tự động hoá. Mình chưa biết gì hết luôn á, bạn muốn bắt đầu từ đâu thì cứ giảng cho mình nghe nhé!",
+      "Trả lời câu hỏi bằng cách hiểu của bạn. Không cần thuộc lòng: hệ thống sẽ đối chiếu với slide, công nhận phần đã hiểu và gợi mở đúng phần còn thiếu.",
     bottlenecks: [
       {
         id: "google_pair",
@@ -199,8 +211,12 @@ export default function TeachAIFlowPlayground() {
   const [selectedLessonId, setSelectedLessonId] = useState<number>(1);
   const [phase, setPhase] = useState<Phase>("answering");
   const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
-  const [understandingLevel, setUnderstandingLevel] = useState<1 | 2 | 3>(1);
-  const [approvedAnalogy, setApprovedAnalogy] = useState<string>("");
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [attempts, setAttempts] = useState(0);
+  const [hintOpen, setHintOpen] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [masteredPointIds, setMasteredPointIds] = useState<string[]>([]);
+  const [targetedHint, setTargetedHint] = useState<string>("");
 
   // Slide & Scorecard modals
   const [slideOpen, setSlideOpen] = useState(false);
@@ -222,11 +238,18 @@ export default function TeachAIFlowPlayground() {
   const currentLesson: LessonItem = useMemo(() => {
     return TEACH_LESSONS.find((item) => item.id === selectedLessonId) ?? TEACH_LESSONS[0];
   }, [selectedLessonId]);
+  const curriculumLesson = useMemo(() => getLesson(selectedLessonId), [selectedLessonId]);
+  const currentQuestion = curriculumLesson.questions[currentQuestionIndex];
+  const questionTotal = curriculumLesson.questions.length;
 
   // Cuộn tự động tin nhắn mới
   useEffect(() => {
     if (screen === "session") {
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      if (chatTurns.length <= 1) {
+        chatScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
     }
   }, [chatTurns, phase, screen]);
 
@@ -275,19 +298,24 @@ export default function TeachAIFlowPlayground() {
   // Bắt đầu chat trực tiếp (bỏ Pre-Test)
   function startSession(lessonId: number) {
     setSelectedLessonId(lessonId);
+    setCurrentQuestionIndex(0);
+    setAttempts(0);
     setPhase("answering");
-    setUnderstandingLevel(1);
-    setApprovedAnalogy("");
     setHintDrawerOpen(false);
+    setHintOpen(false);
+    setSourceOpen(false);
+    setMasteredPointIds([]);
+    setTargetedHint("");
 
     const targetLesson =
       TEACH_LESSONS.find((item) => item.id === lessonId) ?? TEACH_LESSONS[0];
+    const targetQuestion = getLesson(lessonId).questions[0];
 
     setChatTurns([
       {
         id: "init-bot",
         role: "assistant",
-        content: targetLesson.initialPrompt,
+        content: targetQuestion.prompt,
         citation: targetLesson.citationCode,
       },
     ]);
@@ -299,17 +327,18 @@ export default function TeachAIFlowPlayground() {
   async function handleTeachingSubmit(text: string, isHint = false) {
     const clean = text.trim();
     if (!clean && !isHint) return;
-    if (phase === "loading") return;
+    if (phase === "loading" || phase === "understood") return;
 
     const userTurn: ChatTurn = {
       id: `user-${Date.now()}`,
       role: "user",
       content: isHint
-        ? "💡 [Gợi ý Socratic]: Bạn có thể gợi mở cho mình một hình ảnh đời thực được không?"
+        ? "💡 Mình cần một gợi ý nhỏ cho ý còn thiếu."
         : clean,
     };
 
     setChatTurns((prev) => [...prev, userTurn]);
+    if (!isHint) setAttempts((value) => value + 1);
     setPhase("loading");
 
     try {
@@ -324,8 +353,9 @@ export default function TeachAIFlowPlayground() {
             content: t.content,
           })),
           is_hint_requested: isHint,
-          lesson_name: `${currentLesson.label}: ${currentLesson.title}`,
           lesson_id: currentLesson.id,
+          question_id: currentQuestion.id,
+          mastered_point_ids: masteredPointIds,
         }),
       });
 
@@ -349,6 +379,7 @@ export default function TeachAIFlowPlayground() {
         content: cleanBotText,
         response_mode: data.response_mode,
         feedback_summary: data.feedback_summary,
+        evaluation: data.evaluation,
         citation: data.citation || currentLesson.citationCode,
         isTopicSwitch: isSwitch,
         switchTarget: switchTarget,
@@ -356,17 +387,16 @@ export default function TeachAIFlowPlayground() {
 
       setChatTurns((prev) => [...prev, botTurn]);
 
-      if (typeof data.understanding_level === "number") {
-        setUnderstandingLevel((prev) =>
-          Math.max(prev, data.understanding_level!) as 1 | 2 | 3
-        );
+      if (Array.isArray(data.mastered_point_ids)) {
+        setMasteredPointIds(data.mastered_point_ids);
+      }
+      if (typeof data.hint === "string" && data.hint.trim()) {
+        setTargetedHint(data.hint.trim());
+        if (isHint) setHintOpen(true);
       }
 
-      if (data.response_mode === "mastered" || data.understanding_level === 3) {
+      if (data.question_mastered === true) {
         setPhase("understood");
-        if (!approvedAnalogy && clean.length > 15) {
-          setApprovedAnalogy(clean);
-        }
       } else {
         setPhase("answering");
       }
@@ -378,19 +408,47 @@ export default function TeachAIFlowPlayground() {
           id: `bot-err-${Date.now()}`,
           role: "assistant",
           content:
-            "Ối bạn ơi, đường truyền của mình bị chập chờn một chút. Bạn giảng lại câu vừa rồi cho mình nhé!",
+            "Đường truyền đang bị gián đoạn. Bạn hãy gửi lại câu trả lời vừa rồi nhé!",
         },
       ]);
       setPhase("answering");
     }
   }
 
+  function advanceQuestion() {
+    if (currentQuestionIndex >= questionTotal - 1) {
+      setScorecardModalOpen(true);
+      return;
+    }
+
+    const nextIndex = currentQuestionIndex + 1;
+    const nextQuestion = curriculumLesson.questions[nextIndex];
+    setCurrentQuestionIndex(nextIndex);
+    setAttempts(0);
+    setPhase("answering");
+    setHintDrawerOpen(false);
+    setHintOpen(false);
+    setSourceOpen(false);
+    setMasteredPointIds([]);
+    setTargetedHint("");
+    setSlideOpen(false);
+    setChatTurns([
+      {
+        id: `question-${nextQuestion.id}`,
+        role: "assistant",
+        content: nextQuestion.prompt,
+        citation: currentLesson.citationCode,
+      },
+    ]);
+    chatScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function handleCopyFlashcard() {
     const text = `🏆 TEACHAI · TEACHBACK CERTIFICATE OF MASTERY
 Khái niệm: ${currentLesson.title} (${currentLesson.label})
 Số lượt đối thoại: ${chatTurns.filter((t) => t.role === "user").length} lượt
-Mức tăng trưởng: +85% (High Gain · Thấu suốt hoàn toàn)
-Ẩn dụ đã được tiếp thu: "${approvedAnalogy || currentLesson.takeaway}"
+Kết quả: Hoàn thành ${questionTotal}/${questionTotal} câu hỏi cố định
+Nội dung đã hoàn thành: ${curriculumLesson.completionTopics.join("; ")}
 Nguồn giáo trình: ${currentLesson.citationCode}`;
 
     navigator.clipboard.writeText(text);
@@ -799,8 +857,8 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
           ) : (
             <div className="flex items-center gap-2">
               <span className="badge">
-                <span className="badge__tag">Protégé</span>
-                <span>You are the teacher</span>
+                <span className="badge__tag">TeachBack</span>
+                <span>Learn by explaining</span>
               </span>
             </div>
           )}
@@ -824,7 +882,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
 
               <p className="sub">
                 TeachAi reasons through every problem carefully before answering.
-                Giảng giải các nguyên lý AI cho học sinh AI 15 tuổi để thấu suốt bản chất.
+                Trả lời các câu hỏi cố định và nhận phản hồi theo từng ý từ dữ liệu bài giảng.
               </p>
 
               {/* Exact 2 Lesson Cards */}
@@ -853,7 +911,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                         ⏱️ {lesson.time}
                       </span>
                       <span className="text-xs font-semibold text-[#111111] flex items-center gap-1 group-hover:translate-x-0.5 transition">
-                        Dạy bài này <ArrowRight className="size-3.5" />
+                        Bắt đầu <ArrowRight className="size-3.5" />
                       </span>
                     </div>
                   </div>
@@ -867,14 +925,43 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
         {/* SCREEN 2: CHATBOT SESSION (Only Chat Scrolls, Prompt Fixed Bottom)*/}
         {/* ================================================================= */}
         {screen === "session" && (
-          <main className="flex-1 flex flex-col justify-between min-h-0 overflow-hidden">
+          <main className="flex-1 min-h-0 overflow-hidden px-3 pb-3 sm:px-5 sm:pb-5">
+            <div className="mx-auto grid h-full min-h-0 max-w-[1180px] gap-4 xl:grid-cols-[minmax(0,1fr)_250px]">
+              <section className="flex min-h-0 flex-col overflow-hidden">
             {/* ─── SCROLLABLE CHAT MESSAGES CANVAS ─── */}
             <div
               ref={chatScrollRef}
               className="flex-1 overflow-y-auto px-4 py-4 min-h-0"
             >
               <div className="max-w-[790px] mx-auto space-y-4">
-                {/* 1. INITIAL AI STUDENT GREETING */}
+                <div className="glass-box rounded-2xl px-4 py-3 sm:px-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#141414] text-xs font-bold text-white">
+                        {currentQuestionIndex + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-[#222222]">
+                          Câu {currentQuestionIndex + 1} / {questionTotal}
+                        </p>
+                        <p className="truncate text-[11px] text-[#666666]">
+                          {currentQuestion.concept}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-emerald-800">
+                      {Math.round(((currentQuestionIndex + 1) / questionTotal) * 100)}%
+                    </span>
+                  </div>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/[0.08]">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 transition-all duration-500"
+                      style={{ width: `${((currentQuestionIndex + 1) / questionTotal) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                    {/* 1. QUESTION INTRODUCTION */}
                 <div className="chat-bubble-ai">
                   <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#141414] text-white text-xs mt-1">
                     <Bot className="size-4" />
@@ -882,7 +969,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2 text-xs">
                       <span className="font-bold text-[#111111] text-[13px]">
-                        AI Student (15 tuổi)
+                        TeachBack AI
                       </span>
                       <span className="text-[11px] text-[#777777]">
                         · {currentLesson.label}
@@ -893,24 +980,15 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                       <p className="whitespace-pre-wrap">{currentLesson.initialPrompt}</p>
                     </div>
 
-                    {/* 2. CHIP GỢI Ý THUẬT NGỮ (MỜ MỜ NHƯ MESSENGER FAQ) */}
-                    <div className="pt-2 pb-1">
-                      <p className="text-[11.5px] text-[#555555] mb-1.5 opacity-75">
-                        Gợi ý các điểm nghẽn nhận thức cần làm rõ:
+                    <div className="rounded-2xl border border-emerald-900/10 bg-emerald-50/80 p-4 shadow-sm backdrop-blur-md">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-800">
+                        Câu hỏi hiện tại
                       </p>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {currentLesson.bottlenecks.map((item) => (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => handleTeachingSubmit(item.prompt)}
-                            className="faq-chip"
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
+                      <p className="mt-1.5 text-[15px] font-semibold leading-6 text-[#17342b]">
+                        {currentQuestion.prompt}
+                      </p>
                     </div>
+
                   </div>
                 </div>
 
@@ -925,11 +1003,16 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                         <div className="min-w-0 space-y-1">
                           <div className="flex items-center gap-2 text-xs">
                             <span className="font-bold text-[#111111] text-[13px]">
-                              AI Student
+                              Phản hồi đánh giá
                             </span>
-                            {turn.response_mode === "counter_probe" && (
+                            {turn.response_mode === "needs_revision" && (
                               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-200">
-                                Hỏi vặn
+                                Cần chỉnh lại
+                              </span>
+                            )}
+                            {turn.response_mode === "partial" && (
+                              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-900 border border-sky-200">
+                                Đúng một phần
                               </span>
                             )}
                             {turn.response_mode === "mastered" && (
@@ -941,6 +1024,44 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
 
                           <div className="glass-box rounded-2xl rounded-tl-sm p-4 sm:p-5 text-[16px] sm:text-[17px] leading-[1.65] text-[#111111] inline-block w-fit max-w-full">
                             <p className="whitespace-pre-wrap">{turn.content}</p>
+
+                            {turn.evaluation &&
+                              (turn.evaluation.correct_points.length > 0 ||
+                                turn.evaluation.incorrect_claims.length > 0) && (
+                                <div className="mt-3 grid gap-2 border-t border-black/[0.08] pt-3 text-sm">
+                                  {turn.evaluation.correct_points.length > 0 && (
+                                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 text-emerald-950">
+                                      <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-emerald-800">
+                                        <CheckCircle2 className="size-3.5" /> Ý đã hiểu đúng
+                                      </p>
+                                      <ul className="mt-1.5 space-y-1.5">
+                                        {turn.evaluation.correct_points.map((point) => (
+                                          <li key={point.id} className="leading-5">
+                                            {point.feedback}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                  {turn.evaluation.incorrect_claims.length > 0 && (
+                                    <div className="rounded-xl border border-rose-200 bg-rose-50/85 p-3 text-rose-950">
+                                      <p className="text-xs font-bold uppercase tracking-[0.08em] text-rose-800">
+                                        Phần cần sửa
+                                      </p>
+                                      <ul className="mt-1.5 space-y-2">
+                                        {turn.evaluation.incorrect_claims.map((item, index) => (
+                                          <li key={`${item.claim}-${index}`} className="leading-5">
+                                            <span className="font-semibold line-through decoration-rose-400/70">
+                                              {item.claim}
+                                            </span>{" "}
+                                            <span>— {item.correction}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
 
                             {/* Nút hành động nếu là trường hợp hỏi khéo chuyển chủ đề */}
                             {turn.isTopicSwitch && turn.switchTarget && (
@@ -983,7 +1104,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                         </span>
                         <div className="min-w-0 text-right space-y-1">
                           <span className="text-[13px] font-semibold text-[#333333]">
-                            You (Teacher)
+                            Câu trả lời của bạn
                           </span>
                           <div className="glass-box rounded-2xl rounded-tr-sm p-4 sm:p-5 text-left text-[16px] sm:text-[17px] leading-[1.65] text-[#111111] shadow-sm bg-white/75 inline-block w-fit ml-auto max-w-full">
                             <p className="whitespace-pre-wrap">{turn.content}</p>
@@ -998,7 +1119,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                 {phase === "loading" && (
                   <div className="flex items-center gap-2 pl-11 text-xs text-[#555555]">
                     <LoaderCircle className="size-3.5 animate-spin text-[#111111]" />
-                    <span>Học sinh AI đang suy ngẫm...</span>
+                    <span>Đang đối chiếu câu trả lời với dữ liệu bài học...</span>
                   </div>
                 )}
 
@@ -1008,18 +1129,20 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                     <div>
                       <p className="font-bold text-sm flex items-center gap-1.5">
                         <CheckCircle2 className="size-4 text-emerald-700" />
-                        <span>Học sinh AI đã thấu suốt trọn vẹn! ⭐</span>
+                        <span>Bạn đã làm rõ đầy đủ câu hỏi này! ⭐</span>
                       </p>
                       <p className="text-xs text-emerald-800 mt-0.5">
-                        Bạn đã chuyển giao thành công cơ chế gốc và ẩn dụ đời thực.
+                        Tất cả ý bắt buộc đã được hiểu đúng. Bạn có thể sang câu tiếp theo.
                       </p>
                     </div>
                     <button
-                      onClick={() => setScorecardModalOpen(true)}
+                      onClick={advanceQuestion}
                       className="btn-dark"
                       style={{ padding: "8px 14px", fontSize: "12px" }}
                     >
-                      Xem Thẻ Flashcard →
+                      {currentQuestionIndex === questionTotal - 1
+                        ? "Hoàn thành bài →"
+                        : "Câu tiếp theo →"}
                     </button>
                   </div>
                 )}
@@ -1029,7 +1152,72 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
             </div>
 
             {/* ─── FIXED PROMPT CARD AT BOTTOM (CANNOT SCROLL) ─── */}
-            <div className="p-4 sm:pb-6 flex-shrink-0 flex justify-center w-full">
+            <div className="flex w-full flex-shrink-0 flex-col items-center gap-2 p-4 sm:pb-6">
+              <div className="flex w-full max-w-[790px] flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const shouldOpen = !hintOpen;
+                    setHintOpen(shouldOpen);
+                    setSourceOpen(false);
+                    if (shouldOpen && phase === "answering") {
+                      handleTeachingSubmit("", true);
+                    }
+                  }}
+                  className="faq-chip inline-flex items-center gap-1.5"
+                  style={{ opacity: 1, background: "rgba(255,255,255,.82)" }}
+                >
+                  <Lightbulb className="size-3.5 text-amber-600" />
+                  Need a hint?
+                  <ChevronDown className={`size-3 transition ${hintOpen ? "rotate-180" : ""}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSourceOpen((value) => !value);
+                    setHintOpen(false);
+                  }}
+                  className="faq-chip inline-flex items-center gap-1.5"
+                  style={{ opacity: 1, background: "rgba(255,255,255,.82)" }}
+                >
+                  <BookOpen className="size-3.5 text-sky-700" />
+                  View learning source
+                  <ChevronDown className={`size-3 transition ${sourceOpen ? "rotate-180" : ""}`} />
+                </button>
+              </div>
+
+              {hintOpen && (
+                <div className="glass-box w-full max-w-[790px] rounded-2xl border border-amber-300/70 bg-amber-50/90 p-3.5 text-sm text-amber-950">
+                  <p className="flex items-center gap-2 font-bold">
+                    <Lightbulb className="size-4 text-amber-600" /> Gợi ý
+                  </p>
+                  <p className="mt-1 leading-5 text-amber-900/80">
+                    {targetedHint || "Đang tìm gợi ý phù hợp với phần bạn còn thiếu..."}
+                  </p>
+                </div>
+              )}
+
+              {sourceOpen && (
+                <div className="glass-box w-full max-w-[790px] rounded-2xl border border-sky-300/60 bg-sky-50/90 p-3.5">
+                  <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-2 text-sm font-bold text-sky-950">
+                        <FileText className="size-4 text-sky-700" /> Learning source
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-sky-900">{currentQuestion.source.range}</p>
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-sky-900/70">{currentQuestion.source.note}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSlideOpen(true)}
+                      className="shrink-0 rounded-xl border border-sky-900/10 bg-white/90 px-3 py-2 text-xs font-bold text-sky-900 shadow-sm transition hover:bg-white"
+                    >
+                      Open slide <ExternalLink className="ml-1 inline size-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <form
                 className="prompt"
                 onSubmit={(e) => {
@@ -1037,31 +1225,31 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                   const target = e.currentTarget.elements.namedItem(
                     "prompt_input"
                   ) as HTMLTextAreaElement;
-                  if (target && target.value.trim() && phase !== "loading") {
+                  if (target && target.value.trim() && phase === "answering") {
                     handleTeachingSubmit(target.value);
                     target.value = "";
                   }
                 }}
               >
                 <label className="sr-only" htmlFor="prompt-input">
-                  Giảng giải cho học sinh AI
+                  Trả lời câu hỏi TeachBack
                 </label>
                 <textarea
                   id="prompt-input"
                   name="prompt_input"
                   className="prompt__input"
                   rows={2}
-                  disabled={phase === "loading"}
+                  disabled={phase === "loading" || phase === "understood"}
                   placeholder={
                     isRecording
                       ? "Đang lắng nghe giọng nói của bạn..."
-                      : "Giảng giải tự nhiên như đang dạy bạn học (Ví dụ: 'Nó giống như...')"
+                      : "Trả lời bằng cách hiểu của bạn — không cần giống từng chữ trong slide"
                   }
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       const val = e.currentTarget.value.trim();
-                      if (val && phase !== "loading") {
+                      if (val && phase === "answering") {
                         handleTeachingSubmit(val);
                         e.currentTarget.value = "";
                       }
@@ -1075,7 +1263,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                       className="icon-btn"
                       type="button"
                       onClick={() => setHintDrawerOpen((v) => !v)}
-                      title="Mở gợi ý Socratic và Slide"
+                      title="Mở gợi ý và nguồn slide"
                     >
                       <Plus className={`size-4 transition ${hintDrawerOpen ? "rotate-45" : ""}`} />
                     </button>
@@ -1084,11 +1272,26 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                       <div className="flex items-center gap-2 text-xs">
                         <button
                           type="button"
-                          onClick={() => handleTeachingSubmit("", true)}
+                          onClick={() => {
+                            setHintOpen(true);
+                            setSourceOpen(false);
+                            handleTeachingSubmit("", true);
+                          }}
                           className="faq-chip"
                           style={{ opacity: 1, background: "white" }}
                         >
                           💡 Xin gợi ý
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSourceOpen((value) => !value);
+                            setHintOpen(false);
+                          }}
+                          className="faq-chip"
+                          style={{ opacity: 1, background: "white" }}
+                        >
+                          📚 Nguồn học
                         </button>
                         <button
                           type="button"
@@ -1103,6 +1306,18 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                   </div>
 
                   <div className="prompt__right">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHintOpen(true);
+                        setSourceOpen(false);
+                        handleTeachingSubmit("", true);
+                      }}
+                      disabled={phase === "loading" || phase === "understood"}
+                      className="hidden rounded-lg px-2 py-1.5 text-xs font-medium text-[#444444] transition hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-40 sm:inline-flex"
+                    >
+                      I’m not sure
+                    </button>
                     <button
                       className="icon-btn icon-btn--bare"
                       type="button"
@@ -1119,7 +1334,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                     <button
                       className="icon-btn icon-btn--send"
                       type="submit"
-                      disabled={phase === "loading"}
+                      disabled={phase === "loading" || phase === "understood"}
                       title="Gửi (Enter)"
                     >
                       <Send className="size-4" />
@@ -1127,6 +1342,76 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                   </div>
                 </div>
               </form>
+            </div>
+              </section>
+
+              <aside className="glass-box hidden max-h-full self-start overflow-y-auto rounded-[22px] p-4 xl:block">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#5f6e68]">
+                  Lesson progress
+                </p>
+                <ol className="mt-4 space-y-1.5">
+                  {curriculumLesson.questions.map((item, index) => {
+                    const complete = index < currentQuestionIndex;
+                    const current = index === currentQuestionIndex;
+                    return (
+                      <li
+                        key={item.id}
+                        className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 transition ${
+                          current
+                            ? "border border-emerald-700/10 bg-emerald-50/80 shadow-sm"
+                            : ""
+                        }`}
+                      >
+                        <span
+                          className={`grid size-7 shrink-0 place-items-center rounded-full text-[11px] font-bold ${
+                            complete
+                              ? "bg-emerald-600 text-white"
+                              : current
+                                ? "bg-[#141414] text-white"
+                                : "bg-white/60 text-[#9a9f9c]"
+                          }`}
+                        >
+                          {complete ? (
+                            <Check className="size-3.5" strokeWidth={3} />
+                          ) : current ? (
+                            index + 1
+                          ) : (
+                            <LockKeyhole className="size-3" />
+                          )}
+                        </span>
+                        <div className="min-w-0">
+                          <p className={`truncate text-xs font-bold ${current ? "text-emerald-950" : complete ? "text-[#3d554d]" : "text-[#8b928f]"}`}>
+                            Câu {index + 1}
+                          </p>
+                          <p className="truncate text-[10px] text-[#7b8581]">
+                            {complete ? "Completed" : current ? item.concept : "Locked"}
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+
+                <div className="my-4 h-px bg-black/[0.08]" />
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#74807b]">Current concept</p>
+                    <p className="mt-1 text-sm font-bold leading-5 text-[#17342b]">{currentQuestion.concept}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-xl bg-white/55 p-2.5">
+                      <p className="text-[10px] text-[#718078]">Attempts</p>
+                      <p className="mt-0.5 text-sm font-bold text-[#17342b]">{attempts}</p>
+                    </div>
+                    <div className="rounded-xl bg-white/55 p-2.5">
+                      <p className="text-[10px] text-[#718078]">Ý đã làm rõ</p>
+                      <p className="mt-0.5 text-sm font-bold text-[#17342b]">
+                        {masteredPointIds.length}/{currentQuestion.requiredPoints.length}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </aside>
             </div>
           </main>
         )}
@@ -1138,20 +1423,20 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
           <DialogContent className="rounded-[24px] border-black/10 bg-white p-6 sm:max-w-xl">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold text-[#111111]">
-                {currentLesson.label} · Slide {currentLesson.slideNumber}
+                {currentLesson.label} · Slide {currentQuestion.source.slide}
               </DialogTitle>
               <DialogDescription className="text-xs text-[#666666]">
-                {currentLesson.topic}
+                {currentQuestion.source.topic}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 pt-2 text-xs">
               <div className="p-4 rounded-xl bg-[#f8f9fa] border border-black/10">
                 <p className="font-bold text-[#111111]">Nguyên lý cốt tử:</p>
                 <p className="text-[#555555] mt-1 leading-relaxed">
-                  {currentLesson.takeaway}
+                  {currentQuestion.source.takeaway}
                 </p>
                 <p className="text-[#888888] mt-2 font-mono">
-                  Nguồn: {currentLesson.citationCode}
+                  Nguồn: {currentQuestion.source.range}
                 </p>
               </div>
               <p className="text-[#666666] italic">
@@ -1176,18 +1461,18 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                 </h3>
               </div>
               <div className="text-right">
-                <span className="text-xl font-bold text-emerald-700">+85%</span>
-                <p className="text-[10px] text-[#777777]">High Gain</p>
+                <span className="text-xl font-bold text-emerald-700">{questionTotal}/{questionTotal}</span>
+                <p className="text-[10px] text-[#777777]">Completed</p>
               </div>
             </div>
 
             <div className="space-y-3 my-4 text-xs">
               <div className="p-3.5 rounded-xl bg-[#f8f9fa] border border-black/[0.06]">
                 <p className="font-bold text-[#111111] mb-1">
-                  💡 Ẩn dụ đời thực đã tiếp thu:
+                  ✅ Kết quả:
                 </p>
-                <p className="italic text-[#333333]">
-                  &ldquo;{approvedAnalogy || currentLesson.takeaway}&rdquo;
+                <p className="text-[#333333]">
+                  Bạn đã làm rõ đầy đủ tất cả câu hỏi cố định của {currentLesson.label}.
                 </p>
               </div>
 
@@ -1214,7 +1499,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                 className="btn-dark"
                 style={{ padding: "8px 16px", fontSize: "12px" }}
               >
-                Dạy bài khác →
+                Học bài khác →
               </button>
             </div>
           </DialogContent>
