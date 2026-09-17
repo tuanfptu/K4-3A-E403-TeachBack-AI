@@ -165,6 +165,8 @@ const AI_MODELS: AIModelOption[] = [
 ];
 
 function getModelDisplayName(modelId: string): string {
+  if (modelId === "local_lesson_rubric") return "TeachBack dự phòng";
+  if (modelId === "targeted_hint") return "Gợi ý sư phạm";
   const found = AI_MODELS.find((m) => m.id === modelId);
   if (found) return found.name;
   return modelId.split("/").pop() || modelId;
@@ -529,7 +531,11 @@ export default function TeachAIFlowPlayground() {
     };
 
     setChatTurns((prev) => [...prev, userTurn]);
-    if (!isHint) setAttempts((value) => value + 1);
+    const isConversationOnly = /^(hi|hello|hey|chào|xin chào|alo|ok|okay|ừ|ừm|vâng|dạ|đúng rồi)[!.?\s]*$/i.test(clean);
+    const isHelpSignal = /^(chưa|không chắc|chịu|không biết|không hiểu|chưa hiểu|không rõ)[!.?\s]*$/i.test(clean);
+    if (!isHint && !isConversationOnly && !isHelpSignal) {
+      setAttempts((value) => value + 1);
+    }
     setPhase("loading");
 
     try {
@@ -1330,6 +1336,26 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                                 </div>
                               )}
 
+                            {turn.citation && (
+                              <button
+                                type="button"
+                                onClick={openSlideViewer}
+                                className="mt-3 flex w-full items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50/90 px-3 py-2.5 text-left transition hover:bg-sky-100"
+                              >
+                                <span className="min-w-0">
+                                  <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-sky-700">
+                                    Nguồn đối chiếu
+                                  </span>
+                                  <span className="mt-0.5 block truncate text-xs font-semibold text-sky-950">
+                                    {turn.citation}
+                                  </span>
+                                </span>
+                                <span className="shrink-0 text-xs font-bold text-sky-800">
+                                  Mở slide <ExternalLink className="ml-1 inline size-3" />
+                                </span>
+                              </button>
+                            )}
+
                             {/* Nút hành động nếu là trường hợp hỏi khéo chuyển chủ đề */}
                             {turn.isTopicSwitch && turn.switchTarget && (
                               <div className="mt-3 flex items-center gap-2 pt-2.5 border-t border-black/[0.08]">
@@ -1793,7 +1819,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded-xl bg-white/55 p-2.5">
-                      <p className="text-[10px] text-[#718078]">Attempts</p>
+                      <p className="text-[10px] text-[#718078]">Lượt trả lời</p>
                       <p className="mt-0.5 text-sm font-bold text-[#17342b]">{attempts}</p>
                     </div>
                     <div className="rounded-xl bg-white/55 p-2.5">

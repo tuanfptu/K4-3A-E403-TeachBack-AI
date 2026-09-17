@@ -101,7 +101,7 @@ export async function POST(request: Request) {
               ["user", "assistant"].includes(message.role) &&
               typeof message.content === "string"
           )
-          .slice(-6)
+          .slice(-12)
       : [];
 
     const messages: ChatMessage[] = [
@@ -109,7 +109,11 @@ export async function POST(request: Request) {
       ...chatHistory,
       {
         role: "user",
-        content: `Câu trả lời mới cần chấm:\n${userMessage}`,
+        content: `Câu trả lời mới cần xử lý:\n${userMessage}${
+          isLearnerSupportUtterance(userMessage)
+            ? "\n\nLƯU Ý SƯ PHẠM: Đây là tín hiệu người học chưa hiểu hoặc chưa chắc, không phải evidence để công nhận thêm ý mới. Hãy giải thích lại bằng một ví dụ ngắn, rồi hỏi một câu kiểm tra dễ hơn."
+            : ""
+        }`,
       },
     ];
 
@@ -123,9 +127,11 @@ export async function POST(request: Request) {
 
     if (!apiKey || apiKey === "your_openrouter_api_key_here") {
       return NextResponse.json(
-        buildConfigurationResponse(
+        buildLocalFallbackResponse(
           question,
+          userMessage,
           alreadyMasteredPointIds,
+          allowedPointIds,
           startTime
         )
       );
@@ -146,19 +152,36 @@ export async function POST(request: Request) {
     } catch (primaryError) {
       console.warn(`[TeachBack AI] Fallback to ${fallbackModel}:`, primaryError);
       modelUsed = fallbackModel;
-      const fallbackResponse = await callOpenRouter({
-        apiKey,
-        model: fallbackModel,
-        messages,
-      });
-      rawResultText = fallbackResponse.text;
-      usageData = fallbackResponse.usage;
+      try {
+        const fallbackResponse = await callOpenRouter({
+          apiKey,
+          model: fallbackModel,
+          messages,
+        });
+        rawResultText = fallbackResponse.text;
+        usageData = fallbackResponse.usage;
+      } catch (fallbackError) {
+        console.error(
+          "[TeachBack AI] Remote models unavailable; using local lesson rubric:",
+          fallbackError
+        );
+        return NextResponse.json(
+          buildLocalFallbackResponse(
+            question,
+            userMessage,
+            alreadyMasteredPointIds,
+            allowedPointIds,
+            startTime
+          )
+        );
+      }
     }
 
     const parsed = parseModelResponse(rawResultText, citation);
     const normalized = normalizeEvaluation({
       parsed,
       question,
+      learnerMessage: userMessage,
       alreadyMasteredPointIds,
       allowedPointIds,
     });
@@ -191,6 +214,181 @@ export async function POST(request: Request) {
       { status }
     );
   }
+}
+
+function buildLocalFallbackResponse(
+  question: Question,
+  userMessage: string,
+  alreadyMasteredPointIds: string[],
+  allowedPointIds: Set<string>,
+  startTime: number
+): AnswerEvaluationResponse & { meta: Record<string, unknown> } {
+  const clean = userMessage.trim().toLocaleLowerCase("vi");
+  const isGreeting = /^(hi|hello|hey|chào|xin chào|alo)[!.?\s]*$/i.test(clean);
+  const isAcknowledgement = /^(đúng rồi|đúng|ok|okay|ừ|ừm|vâng|dạ)[!.?\s]*$/i.test(clean);
+  const isConfused = /^(chưa|không chắc|chịu)[!.?\s]*$|không hiểu|chưa hiểu|không rõ|giải thích lại|nói dễ hơn/i.test(clean);
+  const isAmbiguous = /^(?:(cái này|ý này|nó)(?:\s+(là gì|sao|thế nào))?|sao vậy|tại sao vậy|là gì|thế nào)[!.?\s]*$/i.test(clean);
+  const isOffTopic = /(thời tiết|bóng đá|nấu ăn|chứng khoán|bitcoin|du lịch|phim|âm nhạc|viết code game|chính trị)/i.test(clean);
+  const answerTokens = meaningfulTokens(clean);
+  const matchedPoints = question.requiredPoints.filter((point) => {
+    if (!allowedPointIds.has(point.id)) return false;
+    if (point.id === "how_might_we_solve") {
+      return /(giải quyết|giải|xử lý).{0,25}(vấn đề|bài toán)|how might we solve/i.test(clean);
+    }
+    if (point.id === "unique_ai_value") {
+      return /ai.{0,45}(độc đáo|khác biệt|tốt hơn|giá trị riêng|lợi thế).{0,35}(rule|cách thường|giải pháp thường|quy trình)?|can ai solve.{0,30}unique/i.test(clean);
+    }
+    if (point.id === "probabilistic_next_token" && /(xác suất|xác xuất|dự đoán|đoán).{0,30}(token|từ)|token.{0,30}(xác suất|ngữ cảnh)/i.test(clean)) return true;
+    if (point.id === "hallucination_consequence" && /(bịa|ảo giác|halluci\w*|sai sự thật|thông tin sai)/i.test(clean)) return true;
+    if (point.id === "fluency_not_truth" && /(trôi chảy|hợp lý|nghe hay).{0,50}(không|chưa).{0,25}(đúng|sự thật|kiểm chứng|xác minh)/i.test(clean)) return true;
+    const pointTokens = meaningfulTokens(`${point.title} ${point.description}`);
+    const overlap = Array.from(pointTokens).filter((token) => answerTokens.has(token));
+    return overlap.length >= 3;
+  });
+  const masteredPointIds = Array.from(new Set([
+    ...alreadyMasteredPointIds,
+    ...matchedPoints.map((point) => point.id),
+  ])).filter((id) => allowedPointIds.has(id));
+  const missingPoints = question.requiredPoints.filter(
+    (point) => !masteredPointIds.includes(point.id)
+  );
+  const nextPoint = missingPoints[0];
+  const questionMastered = missingPoints.length === 0;
+  const explainsProblemFirst =
+    question.concept === "Google PAIR Reframe" &&
+    /(vấn đề trước|giải pháp sau|giải nhầm vấn đề|chatbot.{0,30}(vô dụng|vô giá trị)|vô giá trị)/i.test(clean);
+
+  let botResponse: string;
+  if (questionMastered) {
+    botResponse = question.success;
+  } else if (isOffTopic) {
+    botResponse = `Câu hỏi đó nằm ngoài bài “${question.concept}”, nên mình chưa đi sang chủ đề ấy nhé. Quay lại bài hiện tại: ${nextPoint?.hint}`;
+  } else if (isAmbiguous) {
+    botResponse = `Mình chưa chắc “${userMessage.trim()}” đang nói tới phần nào. Bạn đang muốn hỏi về câu hỏi hiện tại, gợi ý vừa rồi hay nguồn slide?`;
+  } else if (isGreeting) {
+    botResponse = `Chào bạn! Mình đang cùng bạn học câu “${question.prompt}”. Bạn cứ giải thích ngắn theo cách mình hiểu nhé.`;
+  } else if (isAcknowledgement) {
+    botResponse = `Mình nghe bạn. Nhưng “${userMessage.trim()}” chưa cho thấy cách bạn hiểu câu hỏi này. Mình gợi mở một bước thôi: ${nextPoint?.hint}`;
+  } else if (isConfused) {
+    botResponse = `Không sao, mình nói lại dễ hơn nhé: ${nextPoint?.description} Bạn thử diễn đạt lại một ý nhỏ bằng lời của bạn được không?`;
+  } else if (explainsProblemFirst && nextPoint?.id === "unique_ai_value") {
+    botResponse = "Đúng, bạn đã giải thích được vì sao phải bắt đầu từ vấn đề. Phần này mình ghi nhận về mặt lập luận. Còn câu hỏi thứ hai của Google PAIR là: AI có giải quyết vấn đề này theo cách độc đáo hoặc tốt hơn cách thông thường không? Bạn thử nói lại câu hỏi đó bằng lời của mình nhé.";
+  } else if (matchedPoints.length > 0) {
+    botResponse = `Bạn đã hiểu đúng: ${matchedPoints.map((point) => point.title).join(", ")}. Bạn không cần lặp lại phần này. Gợi ý cho ý còn thiếu: ${nextPoint?.hint}`;
+  } else {
+    botResponse = `Mình hiểu ý bạn, nhưng chưa thấy ý nào đủ rõ để ghi nhận. Mình cùng đi từng bước nhé: ${nextPoint?.hint}`;
+  }
+  botResponse = `${botResponse}\n\nNguồn đối chiếu: ${question.source.range}.`;
+
+  return {
+    bot_response: botResponse,
+    response_mode: questionMastered ? "mastered" : masteredPointIds.length > 0 ? "partial" : "needs_revision",
+    understanding_level: questionMastered ? 3 : masteredPointIds.length > 0 ? 2 : 1,
+    question_mastered: questionMastered,
+    mastered_point_ids: masteredPointIds,
+    missing_point_ids: missingPoints.map((point) => point.id),
+    evaluation: {
+      correct_points: matchedPoints.map((point) => ({
+        id: point.id,
+        evidence: "Đối chiếu với rubric cố định của bài học.",
+        feedback: `Bạn đã đề cập đúng ý “${point.title}”.`,
+      })),
+      incorrect_claims: [],
+      newly_mastered_point_ids: matchedPoints.map((point) => point.id),
+      invalidated_point_ids: [],
+    },
+    feedback_summary: {
+      what_you_did_well: matchedPoints.map((point) => point.title).join(", "),
+      missing_or_vague: nextPoint?.title || "",
+    },
+    hint: nextPoint?.hint || null,
+    citation: question.source.range,
+    meta: {
+      latency_ms: Date.now() - startTime,
+      model_used: "local_lesson_rubric",
+      citation: question.source.range,
+      degraded_mode: true,
+    },
+  };
+}
+
+function meaningfulTokens(value: string): Set<string> {
+  const stopWords = new Set(["các", "cho", "của", "được", "là", "một", "này", "những", "thì", "trong", "và", "với", "theo", "như", "khi", "không"]);
+  return new Set(value.split(/[^\p{L}\p{N}_-]+/u).filter((token) => token.length > 2 && !stopWords.has(token)));
+}
+
+function isLearnerSupportUtterance(value: string): boolean {
+  const clean = value.trim().toLocaleLowerCase("vi");
+  return /^(chưa|không chắc|chịu|không biết|không hiểu|chưa hiểu|không rõ)[!.?\s]*$|giải thích lại|nói dễ hơn|cho (mình|tôi|em) (một )?gợi ý/i.test(clean);
+}
+
+function detectSemanticPointIds(question: Question, value: string): string[] {
+  const clean = value.trim().toLocaleLowerCase("vi");
+  const matches: string[] = [];
+  const add = (id: string, condition: boolean) => {
+    if (condition && question.requiredPoints.some((point) => point.id === id)) {
+      matches.push(id);
+    }
+  };
+
+  add(
+    "probabilistic_next_token",
+    /(dự đoán|đoán|chọn|sinh).{0,35}(token|từ|chữ).{0,45}(xác suất|ngữ cảnh)|xác (suất|xuất).{0,35}(token|từ|chữ|câu trả lời)|token.{0,35}(xác suất|ngữ cảnh)/i.test(clean)
+  );
+  add(
+    "fluency_not_truth",
+    /(trôi chảy|nghe hợp lý|nghe hay|mượt).{0,80}(không|chưa|khác).{0,30}(đúng|chính xác|sự thật|kiểm chứng)|độ chính xác.{0,60}(bằng chứng|nguồn|kiểm chứng)|không.{0,35}(kiểm chứng|xác minh).{0,35}(sự thật|đúng sai|thông tin)/i.test(clean)
+  );
+  add(
+    "hallucination_consequence",
+    /(ảo giác|halluci\w*|bịa|thông tin sai|sai sự thật|tự tin.{0,30}sai|người.{0,30}hiểu sai|quyết định sai)/i.test(clean)
+  );
+  add(
+    "finite_visible_context",
+    /(context|ngữ cảnh|bàn làm việc).{0,70}(hữu hạn|giới hạn|tối đa|sức chứa|chỉ.{0,15}(nhìn|thấy|dùng))|(lượng|số).{0,30}token.{0,30}(tối đa|giới hạn|một lần)|thông tin.{0,35}(đưa vào|nằm trong).{0,25}context/i.test(clean)
+  );
+  add(
+    "cost_and_latency",
+    /(context|prompt|token|tài liệu).{0,70}(tốn|chi phí|đắt|chậm|độ trễ|thời gian|compute|bộ nhớ)|(tốn|chi phí|chậm|độ trễ|thời gian|compute|bộ nhớ).{0,70}(context|prompt|token|xử lý)/i.test(clean)
+  );
+  add(
+    "lost_in_middle",
+    /(lost in the middle|thông tin|nội dung).{0,70}(ở giữa|nằm giữa).{0,60}(bỏ sót|bị quên|không.{0,15}(chú ý|tận dụng|sử dụng)|kém hiệu quả)|(ở giữa|phần giữa).{0,60}(bỏ sót|bị quên|chú ý.{0,20}(kém|ít))/i.test(clean)
+  );
+  add(
+    "trusted_grounding",
+    /(grounding|neo|dựa|trả lời).{0,60}(nguồn|tài liệu|bằng chứng).{0,35}(tin cậy|đáng tin|tham chiếu|cụ thể|xác thực)|nguồn (tin cậy|đáng tin).{0,50}(context|câu trả lời|prompt)/i.test(clean)
+  );
+  add(
+    "rag_retrieve_then_generate",
+    /(rag|hệ thống).{0,45}(truy xuất|tìm|lấy).{0,70}(tài liệu|đoạn|thông tin).{0,70}(đưa|chèn|thêm).{0,35}(prompt|context|ngữ cảnh)|truy xuất.{0,60}(tài liệu|thông tin).{0,60}(tạo|sinh|trả lời)/i.test(clean)
+  );
+  add(
+    "reduce_not_eliminate",
+    /(giảm|hạn chế).{0,35}(ảo giác|bịa|sai|lỗi).{0,80}(không.{0,15}(hết|tuyệt đối|100%)|vẫn.{0,20}(kiểm|sai))|không.{0,20}(loại bỏ|triệt tiêu|đúng 100%).{0,35}(ảo giác|sai|lỗi)|vẫn cần.{0,25}(kiểm chứng|xác minh|kiểm tra)/i.test(clean)
+  );
+  add(
+    "sampling_control",
+    /(temperature|nhiệt độ).{0,60}(ngẫu nhiên|lấy mẫu|chọn token|phân bố xác suất|xác suất)|(ngẫu nhiên|lấy mẫu).{0,50}(token|temperature|nhiệt độ)/i.test(clean)
+  );
+  add(
+    "low_temperature",
+    /(temperature|nhiệt độ).{0,20}(thấp|gần 0|bằng 0|= 0).{0,60}(ổn định|nhất quán|chắc chắn|ít ngẫu nhiên|code|phân tích)|(thấp|gần 0).{0,40}(ưu tiên|chọn).{0,25}(token|từ).{0,20}(chắc|xác suất cao)/i.test(clean)
+  );
+  add(
+    "high_temperature_tradeoff",
+    /(temperature|nhiệt độ).{0,20}(cao|lớn).{0,75}(đa dạng|sáng tạo|ngẫu nhiên|lạc đề|rủi ro|sai)|(cao|lớn).{0,30}(sáng tạo|đa dạng).{0,50}(rủi ro|lạc|sai)|không.{0,25}(thông minh hơn|thêm kiến thức)/i.test(clean)
+  );
+  add(
+    "how_might_we_solve",
+    /(giải quyết|xử lý).{0,25}(vấn đề|bài toán)|how might we solve/i.test(clean)
+  );
+  add(
+    "unique_ai_value",
+    /ai.{0,50}(độc đáo|khác biệt|tốt hơn|giá trị riêng|lợi thế).{0,35}(rule|cách thường|giải pháp thường|quy trình)?|can ai solve.{0,30}unique/i.test(clean)
+  );
+
+  return matches;
 }
 
 function buildHintResponse(
@@ -303,19 +501,28 @@ function parseModelResponse(
 function normalizeEvaluation({
   parsed,
   question,
+  learnerMessage,
   alreadyMasteredPointIds,
   allowedPointIds,
 }: {
   parsed: Partial<AnswerEvaluationResponse>;
   question: Question;
+  learnerMessage: string;
   alreadyMasteredPointIds: string[];
   allowedPointIds: Set<string>;
 }): AnswerEvaluationResponse {
   const evaluation = parsed.evaluation;
-  const newlyMasteredPointIds = uniqueAllowedIds(
-    evaluation?.newly_mastered_point_ids,
-    allowedPointIds
-  );
+  const semanticPointIds = isLearnerSupportUtterance(learnerMessage)
+    ? []
+    : detectSemanticPointIds(question, learnerMessage).filter((id) =>
+        allowedPointIds.has(id)
+      );
+  const newlyMasteredPointIds = Array.from(
+    new Set([
+      ...uniqueAllowedIds(evaluation?.newly_mastered_point_ids, allowedPointIds),
+      ...semanticPointIds,
+    ])
+  ).filter((id) => !alreadyMasteredPointIds.includes(id));
   const invalidatedPointIds = uniqueAllowedIds(
     evaluation?.invalidated_point_ids,
     allowedPointIds
@@ -329,11 +536,24 @@ function normalizeEvaluation({
     .filter((point) => !masteredSet.has(point.id))
     .map((point) => point.id);
 
-  const correctPoints = Array.isArray(evaluation?.correct_points)
+  const modelCorrectPoints = Array.isArray(evaluation?.correct_points)
     ? evaluation.correct_points.filter(
         (point) => point && allowedPointIds.has(point.id)
       )
     : [];
+  const correctPoints = [
+    ...modelCorrectPoints,
+    ...semanticPointIds
+      .filter((id) => !modelCorrectPoints.some((point) => point.id === id))
+      .map((id) => {
+        const point = question.requiredPoints.find((item) => item.id === id)!;
+        return {
+          id,
+          evidence: learnerMessage,
+          feedback: `Bạn đã diễn đạt đúng ý “${point.title}”.`,
+        };
+      }),
+  ];
   const incorrectClaims = Array.isArray(evaluation?.incorrect_claims)
     ? evaluation.incorrect_claims.filter(
         (item) =>
@@ -349,9 +569,11 @@ function normalizeEvaluation({
   );
   const responseMode: AnswerEvaluationResponse["response_mode"] = questionMastered
     ? "mastered"
-    : incorrectClaims.length > 0 || newlyMasteredPointIds.length === 0
+    : incorrectClaims.length > 0
       ? "needs_revision"
-      : "partial";
+      : masteredPointIds.length > 0
+        ? "partial"
+        : "needs_revision";
   const understandingLevel: 1 | 2 | 3 = questionMastered
     ? 3
     : masteredPointIds.length > 0
@@ -360,13 +582,15 @@ function normalizeEvaluation({
 
   return {
     bot_response: questionMastered
-      ? question.success
-      : buildLearnerFeedback({
-          correctPoints,
-          incorrectClaims,
-          nextHint: parsed.hint || nextMissingPoint?.hint || null,
-          fallback: cleanBotResponse(parsed.bot_response),
-        }),
+      ? `${question.success}\n\nNguồn đối chiếu: ${question.source.range}.`
+      : typeof parsed.bot_response === "string" && parsed.bot_response.trim() && !parsed.bot_response.trim().startsWith("{")
+        ? parsed.bot_response.trim()
+        : buildLearnerFeedback({
+            correctPoints,
+            incorrectClaims,
+            nextHint: parsed.hint || nextMissingPoint?.hint || null,
+            fallback: cleanBotResponse(parsed.bot_response),
+          }),
     response_mode: responseMode,
     understanding_level: understandingLevel,
     question_mastered: questionMastered,

@@ -262,12 +262,6 @@ export const lessons: Lesson[] = [
             description: "Sau đó hỏi AI có giải quyết bài toán theo cách độc đáo hoặc tốt hơn giải pháp thường hay không.",
             hint: "Điều gì khiến AI đáng dùng hơn rule, checklist hoặc quy trình thông thường?",
           },
-          {
-            id: "problem_before_solution",
-            title: "Problem-first",
-            description: "Hiểu đúng vấn đề trước, coi AI chỉ là một phương án và tránh solution-first.",
-            hint: "Một chatbot rất tốt có ích gì nếu đội ngũ đang giải nhầm vấn đề?",
-          },
         ],
         source: {
           range: "Day 2 · Slide 8",
