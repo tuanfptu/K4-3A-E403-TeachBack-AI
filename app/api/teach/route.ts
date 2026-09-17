@@ -167,34 +167,95 @@ export async function POST(request: Request) {
       }
     }
 
-    // 3. Cơ chế Chống bế tắc / Failure Loop Break (FR-4)
-    // Đếm số lần học viên giải thích sai liên tiếp
+    // 3. Cơ chế Phản biện sư phạm & Gỡ rối có chiều sâu (FR-4)
     const assistantMessages = chatHistory.filter((m) => m.role === "assistant");
+    const userTurnsCount = chatHistory.filter((m) => m.role === "user").length;
+
+    // Đếm số lượt phản biện thực sự
     const consecutiveFailures = assistantMessages
+      .slice(1)
       .slice(-3)
       .filter(
         (m) =>
-          m.content.toLowerCase().includes("khoan") ||
-          m.content.toLowerCase().includes("chưa đúng") ||
-          m.content.toLowerCase().includes("khập khiễng")
+          m.content.toLowerCase().includes("chưa chính xác") ||
+          m.content.toLowerCase().includes("chưa đúng lắm") ||
+          m.content.toLowerCase().includes("khập khiễng") ||
+          m.content.toLowerCase().includes("khoan bạn ơi") ||
+          m.content.toLowerCase().includes("ngược")
       ).length;
 
+    // Nhận diện người học bày tỏ khó khăn
+    const userUnsureRegex = /(không biết|chưa biết|chịu rồi|\bchịu\b|chưa hiểu|khó quá|giải thích hộ|nói luôn đi|không rõ|bó tay|quên rồi|chưa rõ|giải thích giùm|không trả lời được|mình không biết|em không biết|chưa nắm|cứu với)/i;
+    const isUserUnsure = userUnsureRegex.test(userMessage);
+    const isDirectDemand = /(giải thích luôn đi|nói luôn đi|nói đáp án đi|bạn giải thích đi|chịu hẳn rồi)/i.test(userMessage);
+
+    // Xác định chủ đề con cụ thể đang thảo luận (RAG, Grounding, Next-token, Attention...)
+    let activeConceptKey = concept;
+    const allRecentText = [
+      userMessage,
+      ...chatHistory.slice(-2).map((m) => m.content),
+    ].join(" ").toLowerCase();
+
+    if (
+      allRecentText.includes("rag") ||
+      allRecentText.includes("tra sổ") ||
+      allRecentText.includes("retrieval")
+    ) {
+      activeConceptKey = "rag";
+    } else if (
+      allRecentText.includes("grounding") ||
+      allRecentText.includes("neo dữ liệu") ||
+      allRecentText.includes("gắn nguồn")
+    ) {
+      activeConceptKey = "grounding";
+    } else if (
+      allRecentText.includes("next-token") ||
+      allRecentText.includes("next token") ||
+      allRecentText.includes("đoán từ")
+    ) {
+      activeConceptKey = "next_token_prediction";
+    } else if (
+      allRecentText.includes("attention") ||
+      allRecentText.includes("chú ý")
+    ) {
+      activeConceptKey = "attention";
+    } else if (
+      allRecentText.includes("ảo giác") ||
+      allRecentText.includes("hallucination") ||
+      allRecentText.includes("bịa")
+    ) {
+      activeConceptKey = "hallucination";
+    }
+
+    const specificGrounding = getGroundingContext(activeConceptKey);
+    const cleanAnalogy = (specificGrounding.sampleGoodAnalogies[0] || "")
+      .replace(/^giống như\s+/i, "")
+      .trim();
+
     let systemPrompt = buildFeynmanSystemPrompt({
-      ...staticGrounding,
+      ...specificGrounding,
       citations: combinedCitations,
     }, lessonName);
 
-    // Nếu học viên bị vặn 3 lần liên tiếp: Kích hoạt chế độ Cứu hộ sư phạm (Scaffolding)
-    if (consecutiveFailures >= 2) {
-      systemPrompt += `\n\n## CHẾ ĐỘ CỨU HỘ SƯ PHẠM (SCAFFOLDING ACTIVATED):
-Học viên đang gặp khó khăn và bị vặn 2-3 lần liên tiếp. BẮT BUỘC BẠN PHẢI DỪNG BẮT BẺ!
-Hãy tỏ ra thông cảm, nhắc học viên mở ${combinedCitations} ra đọc lại, và hạ độ khó bằng một câu hỏi gợi mở siêu dễ!`;
-    }
+    // ĐIỀU KIỆN KÍCH HOẠT GỠ RỐI: Phải vặn/đối thoại qua ít nhất 2-3 lượt, HOẶC người học bấm nút/yêu cầu trực tiếp
+    const shouldRescue = isHintRequested || isDirectDemand || ((userTurnsCount >= 2 || consecutiveFailures >= 2) && isUserUnsure);
 
-    // Nếu học viên bấm nút "Tôi chưa rõ / Cần gợi ý" (FR-5)
-    if (isHintRequested) {
-      systemPrompt += `\n\n## CHẾ ĐỘ HỖ TRỢ GỢI Ý SOCRATIC (HINT REQUESTED):
-Học viên vừa bấm nút 'Tôi chưa rõ / Cần gợi ý'. Tuyệt đối KHÔNG giải thích hộ đáp án! Hãy đưa ra một hình ảnh ẩn dụ đời thường gợi ý (ví dụ: bàn phím điện thoại gợi ý từ, thi đề mở...) và hỏi xem học viên có thấy nét tương đồng nào không!`;
+    if (shouldRescue) {
+      systemPrompt += `\n\n## 🚨 LỆNH GỠ RỐI SƯ PHẠM (SCAFFOLDING RESCUE):
+Hai bên đã đối thoại/phản biện qua lại và người học đang gặp bế tắc về "${specificGrounding.vietnameseName}".
+BẮT BUỘC BẠN PHẢI CHỌN: "response_mode": "scaffolding_rescue"!
+TUYỆT ĐỐI KHÔNG BẮT BẺ NỮA!
+QUY TẮC PHÁT NGÔN TỰ NHIÊN (RẤT QUAN TRỌNG):
+TUYỆT ĐỐI KHÔNG NÓI: "Dạ em vừa đọc từ Slide...", "Theo tài liệu bài giảng..."!
+HÃY PHÁT BIỂU TỰ NHIÊN NHƯ SUY NGHĨ CỦA CHÍNH BẠN:
+"Tôi nghĩ là cái này hoạt động theo kiểu: ${specificGrounding.coreDefinition}... Nó giống như là ví dụ ${cleanAnalogy || "học sinh tra tài liệu trong cẩm nang"}... Bạn thấy tôi nghĩ như vậy có hợp lý không?"
+Feedback tóm tắt hãy động viên người học và tóm tắt ngắn gọn cơ chế chuẩn.`;
+    } else if (isUserUnsure && userTurnsCount < 2) {
+      // Nếu mới lượt 1 mà người học chưa tự tin: Hãy vặn nhẹ / khích lệ đoán thử 1-2 câu, chưa vội mớm đáp án
+      systemPrompt += `\n\n## HƯỚNG DẪN KHÍCH LỆ PHẢN BIỆN:
+Người học mới chỉ hơi ngập ngừng ở lượt đầu. ĐỪNG vội mớm toàn bộ đáp án ngay!
+Hãy vặn nhẹ hoặc đưa ra một gợi mở ngắn để khích lệ bạn học thử suy luận hoặc đoán xem!
+Xưng hô tự nhiên "mình - bạn" hoặc "tôi - bạn", tuyệt đối không xưng "15 tuổi".`;
     }
 
     // 4. Chuẩn bị Messages

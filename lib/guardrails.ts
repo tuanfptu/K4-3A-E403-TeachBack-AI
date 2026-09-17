@@ -96,7 +96,8 @@ export function sanitizeNoLeak(
   // Chỉ áp dụng khi bot đang trong vai hỏi vặn hoặc vòi ví dụ
   if (
     responseMode === "mastered" ||
-    responseMode === "acknowledge_explore"
+    responseMode === "acknowledge_explore" ||
+    responseMode === "scaffolding_rescue"
   ) {
     return botResponse;
   }
@@ -157,8 +158,12 @@ export function detectOutOfScopeMessage(
     return { isOutOfScope: false };
   }
 
-  // Xác định tên bài học chuẩn
-  let activeLesson = lessonName || conceptName;
+  // Xác định tên bài học chuẩn (tránh lặp Day 1: Day 1: ...)
+  let activeLesson = (lessonName || conceptName)
+    .replace(/^Day \d+:\s*(Day \d+)/i, "$1")
+    .replace(/^Lesson \d+:\s*(Lesson \d+)/i, "$1")
+    .trim();
+
   if (!lessonName) {
     if (
       conceptName.toLowerCase().includes("d1") ||
@@ -181,40 +186,19 @@ export function detectOutOfScopeMessage(
   const isLesson2 = activeLesson.toLowerCase().includes("day 2") || activeLesson.toLowerCase().includes("lesson 2") || activeLesson.toLowerCase().includes("bài toán") || activeLesson.toLowerCase().includes("problem");
 
   const lessonFocusMsg = isLesson1
-    ? "Bài này chúng mình tập trung vào cơ chế bên trong LLM: next-token prediction, context window, ảo giác hallucination và Grounding/RAG."
+    ? "Bài này chúng mình tập trung vào cơ chế bên trong LLM: next-token prediction, context window, ảo giác hallucination, núm vặn temperature và Grounding/RAG."
     : isLesson2
     ? "Bài này chúng mình tập trung vào Quick Problem Card, Google PAIR ('Can AI solve this in a unique way?'), 3 cấp độ Rule vs Workflow vs Agent, và Human-in-the-loop (HITL)."
     : "Bài này chúng mình chỉ tập trung vào kiến thức trong bài thôi.";
 
-  // 1. Danh sách các mẫu câu hỏi lạc đề kinh điển (ăn uống, thời tiết, giải toán phổ thông, tin tức, làm thơ...)
-  const outOfScopePatterns: { pattern: RegExp; topic: string }[] = [
-    { pattern: /(cách|hướng dẫn|công thức|nấu|làm|pha)\s+(nấu|làm|pha|ăn|uống)?\s*(phở|lẩu|bún|bánh|cơm|món)/i, topic: "ẩm thực" },
-    { pattern: /(thời tiết|nhiệt độ|dự báo thời tiết)\s*(hôm nay|ngày mai|hà nội|sài gòn|tp hcm)?/i, topic: "thời tiết" },
-    { pattern: /(tỷ số|kết quả|lịch thi đấu|trận đấu|đá banh|bóng đá)\s*(hôm nay|ngoại hạng|world cup|c1)?/i, topic: "thể thao" },
-    { pattern: /(làm|viết|sáng tác)\s+(cho tôi\s+)?(bài thơ|thơ|bài hát|bài ca)/i, topic: "sáng tác thơ văn" },
-    { pattern: /(giải|tính)\s+(phương trình|tích phân|đạo hàm|tam giác|hình thang)/i, topic: "toán học phổ thông" },
-    { pattern: /(giá vàng|chứng khoán|bitcoin|crypto|tiền ảo)\s*(hôm nay|thế nào|bao nhiêu)?/i, topic: "tài chính / crypto" },
-    { pattern: /(ai là|tiểu sử|tổng thống|chủ tịch|thủ tướng)\s+(nước mỹ|việt nam|pháp|nga)/i, topic: "chính trị / lịch sử" },
-    { pattern: /(lái xe|mua xe|xe máy|ô tô|sửa xe|đi phượt|du lịch)\s*(honda|toyota|đà nẵng|sapa|ở đâu|thế nào)?/i, topic: "đời sống / du lịch" },
-  ];
-
-  for (const item of outOfScopePatterns) {
-    if (item.pattern.test(clean)) {
-      return {
-        isOutOfScope: true,
-        reason: item.topic,
-        message: `Ơ bạn ơi, thuật ngữ này không thuộc phạm vi bài học '${activeLesson}' của chúng mình đâu! ${lessonFocusMsg} Bạn hãy tập trung giảng giải nội dung bài này cho mình nhé!`,
-      };
-    }
-  }
-
-  // 2. TỪ KHÓA BÀI HỌC VÀ FAST-TRACK
+  // 1. TỪ KHÓA BÀI HỌC VÀ FAST-TRACK (ƯU TIÊN HÀNG ĐẦU - NẾU CÓ TỪ KHÓA LÀ KHÔNG ĐƯỢC CHẶN)
   const lesson1Keywords = [
     "token", "mảnh chữ", "context", "context window", "bàn làm việc", "next-token", "next token",
     "đoán từ", "xác suất", "predict", "attention", "transformer", "ảo giác", "hallucination",
     "bịa", "bịa chuyện", "bịa thông tin", "grounding", "rag", "tra sổ", "retrieval", "truy xuất",
     "trích xuất", "tài liệu", "doc", "document", "kho dữ liệu", "prompt", "temperature",
-    "núm vặn", "kiểm chứng", "fact-checking", "llm", "ai", "thông tin từ ai", "generative"
+    "nhiệt độ", "độ liều", "núm vặn", "t=0", "t=1", "sampling", "lấy mẫu", "stochastic",
+    "kiểm chứng", "fact-checking", "llm", "ai", "thông tin từ ai", "generative"
   ];
   const lesson2Keywords = [
     "bài toán", "problem card", "problem statement", "quick card", "double diamond", "google pair",
@@ -233,6 +217,28 @@ export function detectOutOfScopeMessage(
   });
   if (isDirectlyInCurrentLesson) {
     return { isOutOfScope: false };
+  }
+
+  // 2. Danh sách các mẫu câu hỏi lạc đề kinh điển (ăn uống, thời tiết, giải toán phổ thông, tin tức, làm thơ...)
+  const outOfScopePatterns: { pattern: RegExp; topic: string }[] = [
+    { pattern: /(cách|hướng dẫn|công thức|nấu|làm|pha)\s+(nấu|làm|pha|ăn|uống)?\s*(phở|lẩu|bún|bánh|cơm|món)/i, topic: "ẩm thực" },
+    { pattern: /(dự báo thời tiết|thời tiết hôm nay|trời mưa|trời nắng|bão số)/i, topic: "thời tiết" },
+    { pattern: /(tỷ số|kết quả|lịch thi đấu|trận đấu|đá banh|bóng đá)\s*(hôm nay|ngoại hạng|world cup|c1)?/i, topic: "thể thao" },
+    { pattern: /(làm|viết|sáng tác)\s+(cho tôi\s+)?(bài thơ|thơ|bài hát|bài ca)/i, topic: "sáng tác thơ văn" },
+    { pattern: /(giải|tính)\s+(phương trình|tích phân|đạo hàm|tam giác|hình thang)/i, topic: "toán học phổ thông" },
+    { pattern: /(giá vàng|chứng khoán|bitcoin|crypto|tiền ảo)\s*(hôm nay|thế nào|bao nhiêu)?/i, topic: "tài chính / crypto" },
+    { pattern: /(ai là|tiểu sử|tổng thống|chủ tịch|thủ tướng)\s+(nước mỹ|việt nam|pháp|nga)/i, topic: "chính trị / lịch sử" },
+    { pattern: /(lái xe|mua xe|xe máy|ô tô|sửa xe|đi phượt|du lịch)\s*(honda|toyota|đà nẵng|sapa|ở đâu|thế nào)?/i, topic: "đời sống / du lịch" },
+  ];
+
+  for (const item of outOfScopePatterns) {
+    if (item.pattern.test(clean)) {
+      return {
+        isOutOfScope: true,
+        reason: item.topic,
+        message: `Ơ bạn ơi, thuật ngữ này không thuộc phạm vi bài học '${activeLesson}' của chúng mình đâu! ${lessonFocusMsg} Bạn hãy tập trung giảng giải nội dung bài này cho mình nhé!`,
+      };
+    }
   }
 
   // 3. Kiểm tra nếu người dùng muốn hỏi chuyển sang một thuật ngữ bài học khác (Topic Switch)

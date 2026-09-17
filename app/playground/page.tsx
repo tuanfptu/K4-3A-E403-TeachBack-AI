@@ -6,20 +6,26 @@ import {
   ArrowRight,
   BookOpen,
   Bot,
+  Brain,
   Check,
   CheckCircle2,
+  ChevronDown,
   Copy,
+  Cpu,
   ExternalLink,
   FileText,
+  Layers,
   Lightbulb,
   LoaderCircle,
   Mic,
   MicOff,
   Plus,
   Send,
+  Settings2,
   Sparkles,
   UserRound,
   X,
+  Zap,
 } from "lucide-react";
 import {
   Dialog,
@@ -43,6 +49,7 @@ export interface TeachAPIResponse {
     | "demand_analogy"
     | "challenge_jargon"
     | "counter_probe"
+    | "scaffolding_rescue"
     | "mastered";
   understanding_level?: 1 | 2 | 3;
   feedback_summary?: {
@@ -69,6 +76,100 @@ export interface ChatTurn {
   citation?: string;
   isTopicSwitch?: boolean;
   switchTarget?: string;
+  modelUsed?: string;
+}
+
+interface AIModelOption {
+  id: string;
+  name: string;
+  provider: "Google" | "OpenAI" | "Anthropic" | "DeepSeek" | "Meta" | "Custom";
+  tag: string;
+  badgeColor: string;
+  description: string;
+}
+
+const AI_MODELS: AIModelOption[] = [
+  {
+    id: "google/gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    provider: "Google",
+    tag: "Khuyên dùng · Siêu tốc",
+    badgeColor: "bg-blue-50 text-blue-700 border-blue-200",
+    description: "Tốc độ phản hồi tức thì, bám sát giáo trình và logic sư phạm.",
+  },
+  {
+    id: "openai/gpt-4o-mini",
+    name: "GPT-4o Mini",
+    provider: "OpenAI",
+    tag: "Nhanh · Thông minh",
+    badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    description: "Nhỏ gọn, lập luận sắc sảo, cân bằng tốt giữa tốc độ & độ sâu.",
+  },
+  {
+    id: "google/gemini-2.5-pro",
+    name: "Gemini 2.5 Pro",
+    provider: "Google",
+    tag: "Suy luận nâng cao",
+    badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    description: "Mô hình suy luận cao cấp nhất của Google cho lập luận đa tầng.",
+  },
+  {
+    id: "openai/gpt-4o",
+    name: "GPT-4o",
+    provider: "OpenAI",
+    tag: "Flagship Đa năng",
+    badgeColor: "bg-purple-50 text-purple-700 border-purple-200",
+    description: "Mô hình đầu bảng OpenAI, hiểu ẩn dụ và bắt bẻ phản biện rất sâu.",
+  },
+  {
+    id: "anthropic/claude-3.5-sonnet",
+    name: "Claude 3.5 Sonnet",
+    provider: "Anthropic",
+    tag: "Đối thoại sư phạm",
+    badgeColor: "bg-amber-50 text-amber-700 border-amber-200",
+    description: "Văn phong tự nhiên, thấu cảm và phản biện sư phạm xuất sắc.",
+  },
+  {
+    id: "deepseek/deepseek-chat",
+    name: "DeepSeek V3",
+    provider: "DeepSeek",
+    tag: "Mạnh mẽ · Tiết kiệm",
+    badgeColor: "bg-cyan-50 text-cyan-700 border-cyan-200",
+    description: "Mã nguồn mở hiệu năng cao, phân tích kỹ thuật rất tốt.",
+  },
+  {
+    id: "meta-llama/llama-3.3-70b-instruct",
+    name: "Llama 3.3 70B",
+    provider: "Meta",
+    tag: "Open Source Leader",
+    badgeColor: "bg-orange-50 text-orange-700 border-orange-200",
+    description: "Mô hình mã nguồn mở hàng đầu của Meta, lập luận chắc chắn.",
+  },
+];
+
+function getModelDisplayName(modelId: string): string {
+  const found = AI_MODELS.find((m) => m.id === modelId);
+  if (found) return found.name;
+  return modelId.split("/").pop() || modelId;
+}
+
+function getModelIcon(modelId: string) {
+  if (modelId.includes("gemini") || modelId.includes("google")) {
+    return <Zap className="size-3.5 text-blue-600 shrink-0" />;
+  }
+  if (modelId.includes("gpt") || modelId.includes("openai")) {
+    return <Bot className="size-3.5 text-emerald-600 shrink-0" />;
+  }
+  if (modelId.includes("claude") || modelId.includes("anthropic")) {
+    return <Brain className="size-3.5 text-amber-600 shrink-0" />;
+  }
+  if (modelId.includes("deepseek")) {
+    return <Cpu className="size-3.5 text-cyan-600 shrink-0" />;
+  }
+  if (modelId.includes("llama") || modelId.includes("meta")) {
+    return <Layers className="size-3.5 text-orange-600 shrink-0" />;
+  }
+  return <Sparkles className="size-3.5 text-indigo-500 shrink-0" />;
 }
 
 export interface BottleneckItem {
@@ -114,7 +215,7 @@ export const TEACH_LESSONS: LessonItem[] = [
       "LLM dự đoán từ tiếp theo theo xác suất, không tự tra cứu sự thật. Cho AI tra sổ (Grounding/RAG) thay vì bắt nhớ.",
     citationCode: "d1-slide-hackathon.pdf (Slide 10–20) · Transcript [T04-047], [T06-139]",
     initialPrompt:
-      "Chào bạn! Mình là học sinh AI, 15 tuổi nè 😄 Hôm nay bạn sẽ dạy mình bài Day 1: AI & LLM Foundation đúng không? Mình sẵn sàng lắng nghe rồi, bạn muốn bắt đầu từ đâu thì cứ giảng cho mình nghe nhé!",
+      "Chào bạn! Hôm nay chúng mình cùng trao đổi về bài Day 1: AI & LLM Foundation nhé! Bạn muốn bắt đầu từ chủ đề nào trước cứ nói với mình nhé!",
     bottlenecks: [
       {
         id: "next_token",
@@ -159,7 +260,7 @@ export const TEACH_LESSONS: LessonItem[] = [
       "Hỏi về bài toán trước, về AI sau. Chọn cấp độ giải pháp từ Rule tĩnh, Workflow đến Agent và luôn thiết kế cơ chế giám sát con người (HITL).",
     citationCode: "d2-slide-hackathon.pdf (Slide 8–24) · Transcript [T01-015], [T02-024], [T03-050]",
     initialPrompt:
-      "Chào bạn! Mình là học sinh AI, 15 tuổi 😄 Nghe nói hôm nay bạn sẽ dạy mình bài Day 2: Xác định bài toán cho AI và Mức độ tự động hoá. Mình chưa biết gì hết luôn á, bạn muốn bắt đầu từ đâu thì cứ giảng cho mình nghe nhé!",
+      "Chào bạn! Hôm nay chúng mình cùng tìm hiểu về bài Day 2: Xác định bài toán cho AI và Mức độ tự động hoá nhé! Bạn muốn bắt đầu từ phần nào cứ nói với mình nhé!",
     bottlenecks: [
       {
         id: "google_pair",
@@ -201,6 +302,46 @@ export default function TeachAIFlowPlayground() {
   const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
   const [understandingLevel, setUnderstandingLevel] = useState<1 | 2 | 3>(1);
   const [approvedAnalogy, setApprovedAnalogy] = useState<string>("");
+
+  // Model Selection
+  const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [customModelInput, setCustomModelInput] = useState("");
+  const [showCustomModelField, setShowCustomModelField] = useState(false);
+  const modelPickerRef = useRef<HTMLDivElement>(null);
+
+  // Restore saved model preference from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("teachback_selected_model");
+      if (saved) {
+        setSelectedModel(saved);
+      }
+    }
+  }, []);
+
+  // Handle outside click to close model picker dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        modelPickerRef.current &&
+        !modelPickerRef.current.contains(event.target as Node)
+      ) {
+        setModelPickerOpen(false);
+      }
+    }
+    if (modelPickerOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [modelPickerOpen]);
+
+  function handleSelectModel(modelId: string) {
+    setSelectedModel(modelId);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("teachback_selected_model", modelId);
+    }
+  }
 
   // Slide & Scorecard modals
   const [slideOpen, setSlideOpen] = useState(false);
@@ -324,8 +465,9 @@ export default function TeachAIFlowPlayground() {
             content: t.content,
           })),
           is_hint_requested: isHint,
-          lesson_name: `${currentLesson.label}: ${currentLesson.title}`,
+          lesson_name: currentLesson.title,
           lesson_id: currentLesson.id,
+          custom_model: selectedModel,
         }),
       });
 
@@ -352,6 +494,7 @@ export default function TeachAIFlowPlayground() {
         citation: data.citation || currentLesson.citationCode,
         isTopicSwitch: isSwitch,
         switchTarget: switchTarget,
+        modelUsed: data.meta?.model_used || selectedModel,
       };
 
       setChatTurns((prev) => [...prev, botTurn]);
@@ -789,6 +932,15 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                 {currentLesson.shortTitle}
               </span>
               <button
+                type="button"
+                onClick={() => setModelPickerOpen((v) => !v)}
+                className="hidden md:inline-flex items-center gap-1.5 rounded-full bg-white/75 hover:bg-white px-2.5 py-1 text-xs font-semibold text-[#222222] border border-black/10 transition shadow-xs cursor-pointer"
+                title="Đổi mô hình AI (OpenRouter)"
+              >
+                {getModelIcon(selectedModel)}
+                <span>{getModelDisplayName(selectedModel)}</span>
+              </button>
+              <button
                 onClick={() => setScreen("lessons")}
                 className="btn-dark"
                 style={{ padding: "8px 14px", fontSize: "12.5px" }}
@@ -824,7 +976,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
 
               <p className="sub">
                 TeachAi reasons through every problem carefully before answering.
-                Giảng giải các nguyên lý AI cho học sinh AI 15 tuổi để thấu suốt bản chất.
+                Cùng đối thoại và làm rõ các nguyên lý AI để thấu suốt bản chất.
               </p>
 
               {/* Exact 2 Lesson Cards */}
@@ -882,7 +1034,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2 text-xs">
                       <span className="font-bold text-[#111111] text-[13px]">
-                        AI Student (15 tuổi)
+                        AI Student
                       </span>
                       <span className="text-[11px] text-[#777777]">
                         · {currentLesson.label}
@@ -923,13 +1075,24 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                           <Bot className="size-4" />
                         </span>
                         <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-2 text-xs">
+                          <div className="flex items-center gap-2 text-xs flex-wrap">
                             <span className="font-bold text-[#111111] text-[13px]">
                               AI Student
                             </span>
+                            {turn.modelUsed && (
+                              <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] font-medium text-[#444444] border border-black/5 flex items-center gap-1">
+                                {getModelIcon(turn.modelUsed)}
+                                <span>{getModelDisplayName(turn.modelUsed)}</span>
+                              </span>
+                            )}
                             {turn.response_mode === "counter_probe" && (
                               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-200">
                                 Hỏi vặn
+                              </span>
+                            )}
+                            {turn.response_mode === "scaffolding_rescue" && (
+                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-900 border border-blue-200 flex items-center gap-1">
+                                💡 Học sinh tra Slide gỡ rối
                               </span>
                             )}
                             {turn.response_mode === "mastered" && (
@@ -941,6 +1104,26 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
 
                           <div className="glass-box rounded-2xl rounded-tl-sm p-4 sm:p-5 text-[16px] sm:text-[17px] leading-[1.65] text-[#111111] inline-block w-fit max-w-full">
                             <p className="whitespace-pre-wrap">{turn.content}</p>
+
+                            {/* Nút phản hồi nhanh khi học sinh vừa tra slide cứu nguy */}
+                            {turn.response_mode === "scaffolding_rescue" && (
+                              <div className="mt-3 flex flex-wrap items-center gap-2 pt-2.5 border-t border-black/[0.08]">
+                                <button
+                                  type="button"
+                                  onClick={() => handleTeachingSubmit("Đúng rồi em! Cơ chế hoạt động chuẩn là như vậy, em tiếp thu rất nhanh.")}
+                                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm transition"
+                                >
+                                  ✓ Đúng rồi em, chính là như vậy!
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleTeachingSubmit("Gần đúng rồi em, để tôi bổ sung thêm một chút...")}
+                                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-black/10 hover:bg-black/5 transition"
+                                >
+                                  Gần đúng, để tôi bổ sung thêm...
+                                </button>
+                              </div>
+                            )}
 
                             {/* Nút hành động nếu là trường hợp hỏi khéo chuyển chủ đề */}
                             {turn.isTopicSwitch && turn.switchTarget && (
@@ -1070,7 +1253,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                 />
 
                 <div className="prompt__bar">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       className="icon-btn"
                       type="button"
@@ -1080,15 +1263,142 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                       <Plus className={`size-4 transition ${hintDrawerOpen ? "rotate-45" : ""}`} />
                     </button>
 
+                    {/* MODEL SELECTOR PILL & FLOATING POPUP */}
+                    <div className="relative" ref={modelPickerRef}>
+                      <button
+                        type="button"
+                        onClick={() => setModelPickerOpen((v) => !v)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/90 hover:bg-white text-[#111111] border border-black/10 shadow-xs transition hover:border-black/25 cursor-pointer backdrop-blur-sm"
+                        title="Chọn mô hình AI (OpenRouter)"
+                      >
+                        {getModelIcon(selectedModel)}
+                        <span className="max-w-[130px] truncate">{getModelDisplayName(selectedModel)}</span>
+                        <ChevronDown className={`size-3 text-[#666666] transition duration-200 ${modelPickerOpen ? "rotate-180" : ""}`} />
+                      </button>
+
+                      {/* FLOATING DROPDOWN MENU */}
+                      {modelPickerOpen && (
+                        <div
+                          className="absolute bottom-full mb-3 left-0 z-[100] w-[310px] sm:w-[350px] rounded-2xl p-3 border border-black/10 shadow-2xl bg-white/95 backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2 duration-150 text-left"
+                          style={{
+                            boxShadow: "0 20px 40px -15px rgba(0,0,0,0.28), 0 0 0 1px rgba(0,0,0,0.08)",
+                          }}
+                        >
+                          <div className="flex items-center justify-between pb-2 mb-2 border-b border-black/5">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-[#111111]">
+                              <Cpu className="size-3.5 text-indigo-600" />
+                              <span>Chọn mô hình AI (OpenRouter)</span>
+                            </div>
+                            <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              Sẵn sàng
+                            </span>
+                          </div>
+
+                          <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1">
+                            {AI_MODELS.map((m) => {
+                              const isSelected = selectedModel === m.id;
+                              return (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  onClick={() => {
+                                    handleSelectModel(m.id);
+                                    setModelPickerOpen(false);
+                                  }}
+                                  className={`w-full text-left p-2 rounded-xl text-xs transition flex items-start justify-between gap-2 border ${
+                                    isSelected
+                                      ? "bg-black/[0.06] border-black/15 text-[#111111]"
+                                      : "bg-transparent border-transparent hover:bg-black/[0.04] text-[#333333]"
+                                  }`}
+                                >
+                                  <div className="flex items-start gap-2.5 min-w-0">
+                                    <div className="mt-0.5 p-1 rounded-lg bg-white border border-black/10 shadow-xs shrink-0">
+                                      {getModelIcon(m.id)}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-bold text-[#111111]">{m.name}</span>
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded border font-semibold ${m.badgeColor}`}>
+                                          {m.provider}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-[#666666] line-clamp-1 mt-0.5">
+                                        {m.description}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  {isSelected && (
+                                    <Check className="size-4 text-emerald-600 shrink-0 mt-1" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Tùy chỉnh custom model ID */}
+                          <div className="mt-2.5 pt-2 border-t border-black/5">
+                            {!showCustomModelField ? (
+                              <button
+                                type="button"
+                                onClick={() => setShowCustomModelField(true)}
+                                className="w-full text-left px-2 py-1.5 rounded-lg text-[11px] text-[#555555] hover:text-[#111111] hover:bg-black/[0.04] flex items-center justify-between transition"
+                              >
+                                <span>+ Nhập model ID OpenRouter tùy ý...</span>
+                                <Settings2 className="size-3 text-[#777777]" />
+                              </button>
+                            ) : (
+                              <div className="space-y-1.5 p-1.5 rounded-xl bg-black/[0.03] border border-black/5">
+                                <label className="text-[10px] font-semibold text-[#666666] block">
+                                  OpenRouter Model ID (ví dụ: `anthropic/claude-3-haiku`):
+                                </label>
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={customModelInput}
+                                    onChange={(e) => setCustomModelInput(e.target.value)}
+                                    placeholder="vendor/model-name"
+                                    className="flex-1 px-2.5 py-1 text-xs rounded-lg border border-black/15 bg-white text-[#111111] focus:outline-none focus:border-black"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        if (customModelInput.trim()) {
+                                          handleSelectModel(customModelInput.trim());
+                                          setModelPickerOpen(false);
+                                        }
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (customModelInput.trim()) {
+                                        handleSelectModel(customModelInput.trim());
+                                        setModelPickerOpen(false);
+                                      }
+                                    }}
+                                    className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#141414] text-white hover:bg-black transition"
+                                  >
+                                    Lưu
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     {hintDrawerOpen && (
                       <div className="flex items-center gap-2 text-xs">
                         <button
                           type="button"
-                          onClick={() => handleTeachingSubmit("", true)}
+                          onClick={() => handleTeachingSubmit("Phần này tôi chưa rõ lắm, em thử mở slide xem có tài liệu nào nói về cái này không?", false)}
                           className="faq-chip"
                           style={{ opacity: 1, background: "white" }}
+                          title="Học sinh sẽ tự tra tài liệu bài giảng và mớm kiến thức chuẩn cho bạn"
                         >
-                          💡 Xin gợi ý
+                          💡 Nhờ học sinh tra Slide cứu nguy
                         </button>
                         <button
                           type="button"
