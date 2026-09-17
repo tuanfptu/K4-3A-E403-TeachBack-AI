@@ -1,128 +1,268 @@
-# TeachAI — vinext-starter
+# TeachBack AI
 
-> 💡 **Hướng dẫn chạy Frontend & Playground**: Vui lòng xem chi tiết tại [app/README.md](app/README.md) để biết cách cấu hình môi trường, khởi chạy và truy cập đúng giao diện Playground (`/playground`).
+**An evidence-grounded AI tutor that helps learners understand by explaining concepts in their own words.**
 
-A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.
+TeachBack AI turns passive reading into an active learning loop. Instead of immediately giving the answer, the tutor listens to the learner’s explanation, recognises the parts they understand, corrects misconceptions, and guides them through one missing idea at a time. Every learning response is grounded in a specific Day/Slide reference.
 
-## Prerequisites
+> Hackathon project by group **E403** for the VinUni AI20K K4 AI Product Hackathon.
+
+## Why TeachBack?
+
+Mining `13,494` anonymised VLearn tutor interactions revealed a clear learning gap:
+
+- `95.3%` of interactions were one-way explanations.
+- Only `0.21%` used a probing question to test understanding.
+- No interaction was labelled as question clarification.
+
+TeachBack AI addresses this gap with a Socratic learning loop:
+
+```text
+Learner explanation
+        ↓
+Intent and scope check
+        ↓
+LLM teacher response + lesson evidence
+        ↓
+Deterministic concept-state tracker
+        ↓
+Recognise correct ideas / repair misconceptions / ask one next question
+        ↓
+Continue until the learner demonstrates mastery
+```
+
+The complete evidence, product decisions, risk scenarios and quality bar are documented in [`spec.md`](spec.md).
+
+## Key features
+
+- **Natural TeachBack conversation:** the LLM behaves like a patient teacher rather than a rigid answer checker.
+- **Persistent concept state:** correct ideas remain recognised across turns, even when the recent conversation becomes long.
+- **Semantic mastery tracking:** everyday wording and minor spelling mistakes are accepted; learners do not need to repeat slide text.
+- **Socratic guidance:** vague answers trigger clarification, while “I don’t understand” triggers a simpler example instead of another assessment.
+- **Scope control:** off-topic questions are declined briefly and redirected to the current lesson.
+- **Misconception repair:** correct and incorrect claims are separated so one mistake does not erase valid understanding.
+- **Grounded citations:** each response identifies the relevant Day/Slide and provides an in-app slide viewer.
+- **Provider resilience:** a secondary OpenRouter model and a conservative local lesson rubric keep the learning flow available when the primary model fails.
+- **Authentication and model selection:** Firebase authentication and configurable OpenRouter models are integrated into the playground.
+
+## Learning content
+
+The working prototype currently covers eight guided questions:
+
+| Lesson | Concepts |
+|---|---|
+| **Day 1 — AI & LLM Foundation** | Next-token prediction and hallucination, Context Window, Grounding and RAG, Temperature |
+| **Day 2 — Defining AI Problems** | Google PAIR Reframe, Quick Problem Card, Rule vs Workflow vs Agent, Human-in-the-loop |
+
+## Architecture
+
+```text
+Browser /playground
+  ├─ Firebase authentication
+  ├─ Conversation and progress UI
+  └─ Slide citation viewer
+            │
+            ▼
+POST /api/teach
+  ├─ Input validation and scope state
+  ├─ Lesson retrieval from lib/lesson-data.ts
+  ├─ Teacher system prompt
+  ├─ OpenRouter primary model
+  ├─ OpenRouter fallback model
+  ├─ Semantic concept-state guardrail
+  └─ Local lesson fallback
+            │
+            ▼
+Response
+  ├─ Natural teacher message
+  ├─ partial / needs_revision / mastered
+  ├─ mastered and missing concept IDs
+  ├─ misconception corrections
+  └─ Day/Slide citation
+```
+
+The LLM generates the teaching dialogue. A deterministic state tracker independently maintains mastery so the interface does not become stuck when a model explains an idea correctly but omits a structured ID.
+
+## Technology
+
+- Vinext, Vite and Next.js-compatible App Router
+- React 19 and TypeScript
+- Tailwind CSS and shadcn-style UI primitives
+- OpenRouter for model access
+- Firebase Authentication
+- VLearn transcripts and lesson slides for local grounding
+
+## Getting started
+
+### Requirements
 
 - Node.js `>=22.13.0`
-- Portable: Windows, macOS, or Linux; no Bash required
-- Managed Linux: managed Linux runtime with Bash, `flock`, `curl`, `sha256sum`, and GNU `timeout`
-- Git is required only for publishing
+- npm
+- Git
+- An OpenRouter API key
+- A Firebase Web App configuration
 
-## Sites Lifecycle
+### 1. Clone and install
 
-The Sites initializer copies the shared starter and selects managed-linux only when `SITES_MANAGED_LINUX_CONTAINER=1`; otherwise it selects portable. It saves the selection only in ignored `.sites-runtime/execution-profile.json`. Both profiles copy/configure first, then use the plugin's separate `install-dependencies.mjs` step to measure installation independently. Edit source under `app/` and follow the Sites skill for installation, preview, builds, and publishing.
-
-Whenever reopening or moving a checkout, run `node <plugin-root>/scripts/configure-execution-profile.mjs` before project commands. Profile changes do not alter tracked source or require reinstalling otherwise-valid dependencies; restart an existing preview to use the new selection. Do not commit or upload `.sites-runtime/`.
-
-This starter does not use `wrangler.jsonc`.
-
-`install:ci` runs `npm ci` once against the shared lockfile, disables parent-workspace discovery, and includes required dev/optional dependencies despite production/omit settings. Sharp defaults to prebuilt binaries unless explicitly configured otherwise. Do not overlap installers.
-
-- **Portable:** Preserve host HOME, npm cache, registry, proxy, temporary paths, retry/concurrency settings, and lifecycle-script policy. Use `--prefer-offline --no-audit --no-fund`.
-- **Managed Linux:** Use the existing project-local HOME/cache/tmp setup and Linux install lock, tarball preflight, and timeout. Restore the image-seeded npm cache only when its lockfile hash matches; retain network fallback. Builds keep their existing timeout. These helpers are not invoked by the portable profile.
-
-`scripts/sites-env.mjs` preserves the caller's HOME, npm cache, proxy, XDG, and temporary-directory configuration while defaulting Wrangler and Miniflare state to the checkout. If npm reports an unwritable cache, select a writable path with `npm_config_cache` for that install. The `dev` and `start` scripts also keep Wrangler logs inside the checkout. Generated `.sites-runtime/` and `.wrangler/` directories are disposable and ignored by Git.
-
-On portable, `npm run dev` uses `vinext dev` with HMR, starting at port 5173. Vinext records the running server in ignored `.vinext/` state, rejects an ordinary duplicate launch, and recovers stale state after a stopped process; exactly simultaneous starts can race. Pass `--port <port>` or `--hostname <host>` after `npm run dev --` when needed; keep portable previews on loopback.
-
-On managed Linux, use `sites-preview start` only for requested browser QA. The project's dev script runs Vite and accepts the supervisor's `--host 0.0.0.0 --port 4173 --strictPort` arguments. The internal browser uses `http://terminal.local:4173/`; it is not a user-facing URL. The supervisor owns the preview lifecycle. The ignored local profile survives the supervisor's cleared process environment.
-
-The portable profile simulates ChatGPT sign-in only for loopback development requests. Visit `/signin-with-chatgpt?return_to=/` to sign in as `local_seedy` (`seedy@sites.test`, display name `Seedy`) and `/signout-with-chatgpt?return_to=/` to sign out. The development cookie preserves that identity across server restarts. Mock auth is disabled in the managed-linux profile and is not included in production builds; hosted authentication remains dispatch-owned.
-
-The Worker uses `vinext/server/fetch-handler`, including Vinext's config-aware image handling. After building, `npm start` runs that Worker locally through Wrangler on `127.0.0.1`, sharing `.wrangler/state` with dev preview and local D1 migrations; it does not deploy the site or simulate sign-in. Use the URL printed by the server. Pass `npm start -- --port <port>` to select a different built-preview port.
-
-Local previews use Miniflare's placeholder `Request.cf` metadata without a network lookup. Set `CLOUDFLARE_CF_FETCH_ENABLED=true` to opt into fetching preview metadata; this setting does not change hosted request metadata.
-
-Local tool usage metrics are disabled by default. Set `WRANGLER_SEND_METRICS=true` to opt in.
-
-## Included Shape
-
-- edit site code under `app/`
-- `app/chatgpt-auth.ts` provides optional dispatch-owned ChatGPT sign-in helpers
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/index.ts` reads the D1 binding from the Cloudflare Worker environment
-- `db/schema.ts` starts intentionally empty
-- `@cloudflare/workers-types` provides Worker types; `cloudflare-env.d.ts` declares optional `DB`/`BUCKET` bindings—update these declarations if binding names change
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
-
-The user ID is stable for the same user on the same Site and different across Sites. Use it as the durable user key; use email and name for display or contact purposes.
-
-SIWC-authenticated workspace sites may also receive `oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty `name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by `oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```bash
+git clone https://github.com/tuanfptu/K4-3A-E403-TeachBack-AI.git
+cd K4-3A-E403-TeachBack-AI
+npm install
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+### 2. Configure environment variables
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs optional or required ChatGPT sign-in:
+Copy the example configuration:
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use the returned `userId` as the stable user key for user-owned records; do not use email as a durable identifier.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send anonymous visitors through Sign in with ChatGPT.
-- In a Server Component, start sign-in with `<a href={chatGPTSignInPath(returnTo)} target="_top">`. The auth helper module is server-only; do not import it into a Client Component.
-- Do not use `fetch`, XHR, a client-side router, or a framework link that can prefetch the sign-in route. SIWC must start as a top-level navigation.
-- Never request the AuthAPI authorization endpoint directly. The dispatch-owned `/signin-with-chatgpt` route must start the SIWC flow.
-- Use `chatGPTSignOutPath(returnTo)` for browser sign-out links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because they depend on per-request identity headers.
-
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the OAuth cookies, and identity header injection. Do not implement app routes for those reserved paths. Routes that do not import and call the helper remain anonymous-compatible.
-
-SIWC establishes identity only; it does not prove workspace membership. Use the Sites hosting platform's access policy controls for workspace-wide restrictions, or enforce explicit server-side membership or allowlist checks.
-
-Use SIWC for account pages, user-specific dashboards, saved records, and write actions tied to the current ChatGPT user. Leave public content anonymous.
-
-## Local D1 migrations
-
-For a D1-backed local preview, generate SQL with `npm run db:generate`. Build once through the Sites skill's build entrypoint (or `npm run build` for standalone use) to generate `dist/server/wrangler.json`, rebuilding if bindings change. From the project root, apply each pending migration in order:
-
-```sh
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_example.sql
+```bash
+cp .env.example .env.local
 ```
 
-Replace the filename with the pending migration and `DB` with your D1 binding name if different. Use `.wrangler/state`, not `.wrangler/state/v3`; Wrangler adds the versioned directories. Do not replay migrations already applied locally. This updates only the preview database; publishing applies production migrations separately.
+Windows PowerShell:
 
-## Diagnostic Commands
+```powershell
+Copy-Item .env.example .env.local
+```
 
-- `npm run install:ci`: perform the one locked dependency install
-- `npm run dev`: start the Vite/Vinext development server
-- `npm run build`: build the deployable Sites artifact
-- `npm run start`: preview the built Worker locally with D1/R2 support
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+Set the following values in `.env.local`:
 
-When using the Sites plugin, follow its skill instructions for installation, builds, and publishing. These npm commands remain available for standalone use.
+```env
+OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_MODEL=google/gemini-2.5-flash
+OPENROUTER_FALLBACK_MODEL=openai/gpt-4o-mini
 
-The portable build runs Vinext directly without a host `timeout` command. The managed-linux build uses `scripts/build-verified.sh` and its existing `SITES_BUILD_TIMEOUT` setting.
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id
+```
 
-## Learn More
+Never commit `.env.local` or an API key.
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+### 3. Prepare the VLearn data pack
+
+The dataset is intentionally excluded from this repository. Obtain authorised access to the organiser’s `data/vlearn-pack` and place it locally as follows:
+
+```text
+data/vlearn-pack/
+  chatlog/
+  transcript/
+  slides/
+```
+
+Expected lesson PDFs:
+
+```text
+data/vlearn-pack/slides/d1-slide-hackathon.pdf
+data/vlearn-pack/slides/d2-slide-hackathon.pdf
+```
+
+The slide viewer expects rendered pages under:
+
+```text
+public/slides/day-1/slide-1.jpg ... slide-29.jpg
+public/slides/day-2/slide-1.jpg ... slide-29.jpg
+```
+
+Both `data/` and `public/slides/` are ignored by Git. Do not commit or redistribute the organiser’s dataset.
+
+### 4. Start the app
+
+```bash
+npm run dev
+```
+
+Open:
+
+**[http://localhost:5173/playground](http://localhost:5173/playground)**
+
+> The API requires outbound network access to reach OpenRouter. If local development is running inside a restricted sandbox, allow network access for the dev server; otherwise the app will use its conservative local fallback.
+
+## Using the playground
+
+1. Sign in and choose Day 1 or Day 2.
+2. Explain the current concept in your own words.
+3. Review the recognised ideas, corrections and one next teaching prompt.
+4. Use **Need a hint?** when blocked.
+5. Open **Nguồn đối chiếu** to inspect the cited slide.
+6. Continue when all required concepts are demonstrated.
+
+Greetings, acknowledgements and requests for help are not counted as failed attempts. The progress card only counts substantive answers.
+
+## Quality and evaluation
+
+The CP3 baseline evaluated 20 cases across eight lesson concepts:
+
+| Metric | Result |
+|---|---:|
+| Full-contract pass rate | `16/20` — `80%` |
+| Correct response-mode classification | `18/20` — `90%` |
+| Misconceptions detected and corrected | `7/7` — `100%` |
+| Responses with lesson citations | `20/20` — `100%` |
+
+Subsequent regression fixes added deterministic semantic tracking for Context Window, RAG and Temperature, and verified the following progress paths:
+
+```text
+Day 1 Question 1: 1/3 → 2/3 → 3/3
+Day 1 Question 2: 1/3 → 3/3
+Day 1 Question 3: 3/3 in one complete answer
+Day 1 Question 4: 3/3 in one complete answer
+```
+
+Supporting artifacts:
+
+- [`spec.md`](spec.md) — product decisions, risks and fixed quality bar
+- [`CP3-TEST-REPORT.md`](CP3-TEST-REPORT.md) — measured CP3 results and failure analysis
+- [`eval/mining_evidence.md`](eval/mining_evidence.md) — reproducible VLearn evidence mining
+- [`eval/golden_set.json`](eval/golden_set.json) — golden evaluation cases
+- [`eval/eval_results.md`](eval/eval_results.md) — evaluation output
+
+Run local verification:
+
+```bash
+npx tsc --noEmit
+npm run build
+```
+
+## Project structure
+
+```text
+app/
+  api/teach/route.ts       TeachBack orchestration and model fallback
+  playground/page.tsx      Main learner experience
+components/
+  auth-modal.tsx           Firebase sign-in and registration
+lib/
+  feynman-prompt.ts        Socratic teacher system prompt and response contract
+  lesson-data.ts           Fixed questions, required concepts and slide sources
+  transcript-retriever.ts  Local VLearn transcript retrieval
+eval/                      Evidence, golden set, traces and reports
+spec.md                    Hackathon AI Product Spec
+```
+
+## Privacy and data handling
+
+- The VLearn pack contains anonymised course interactions and is used only for the authorised hackathon workflow.
+- Raw chatlogs, transcripts, PDFs, rendered slides and API secrets are excluded from Git.
+- The application must not attempt to re-identify learners.
+- Only the minimum relevant lesson context should be sent to an external model provider.
+- Repository artifacts use aggregate counts and short, traceable examples rather than republishing the complete dataset.
+
+## Team
+
+| Contributor | Primary contribution |
+|---|---|
+| Tuan Ha (`tuanfptu`) | Product integration, UX/UI, authentication, model selection and release |
+| Lương Quang Huy (`huyluong1910`) | AI backend, evidence mining and evaluation |
+| `QuocCuongDang` | TeachBack lesson flow and learner interface |
+| `LuongToan12` | Lesson grounding and VLearn source integration |
+
+## Status
+
+TeachBack AI is a working hackathon prototype. It is designed for supervised learning support and is not a production assessment system or a substitute for an instructor.
+
+## License and dataset notice
+
+Source-code usage follows the repository owner’s terms. The VLearn data pack remains subject to the organiser’s access and confidentiality requirements and is not included under any source-code licence for this repository.
