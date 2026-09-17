@@ -3,10 +3,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "TeachAI — Learn by Teaching",
-  description: "Learn more deeply by explaining concepts to an AI student.",
+  description: "Kiểm tra mức độ hiểu bài bằng phương pháp Teach-Back.",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/favicon.svg?v=teachai-2",
+    shortcut: "/favicon.svg?v=teachai-2",
   },
 };
 

@@ -49,6 +49,7 @@ next-env.d.ts
 # Hackathon datasets (confidential - do not commit)
 data/
 *.csv
+/public/slides/
 
 # Temporary test scripts & build artifacts
 scratch/

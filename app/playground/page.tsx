@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import {
   ArrowRight,
   BookOpen,
@@ -8,6 +9,8 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   FileText,
   Lightbulb,
@@ -220,6 +223,7 @@ export default function TeachAIFlowPlayground() {
 
   // Slide & Scorecard modals
   const [slideOpen, setSlideOpen] = useState(false);
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [scorecardModalOpen, setScorecardModalOpen] = useState(false);
   const [copiedFlashcard, setCopiedFlashcard] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -241,6 +245,11 @@ export default function TeachAIFlowPlayground() {
   const curriculumLesson = useMemo(() => getLesson(selectedLessonId), [selectedLessonId]);
   const currentQuestion = curriculumLesson.questions[currentQuestionIndex];
   const questionTotal = curriculumLesson.questions.length;
+  const questionSlides = currentQuestion.source.slides;
+  const activeSlideNumber =
+    questionSlides[Math.min(activeSlideIndex, questionSlides.length - 1)] ??
+    currentQuestion.source.slide;
+  const activeSlideImage = `/slides/day-${currentLesson.id}/slide-${activeSlideNumber}.jpg`;
 
   // Cuộn tự động tin nhắn mới
   useEffect(() => {
@@ -296,6 +305,11 @@ export default function TeachAIFlowPlayground() {
   }, []);
 
   // Bắt đầu chat trực tiếp (bỏ Pre-Test)
+  function openSlideViewer() {
+    setActiveSlideIndex(0);
+    setSlideOpen(true);
+  }
+
   function startSession(lessonId: number) {
     setSelectedLessonId(lessonId);
     setCurrentQuestionIndex(0);
@@ -304,6 +318,7 @@ export default function TeachAIFlowPlayground() {
     setHintDrawerOpen(false);
     setHintOpen(false);
     setSourceOpen(false);
+    setActiveSlideIndex(0);
     setMasteredPointIds([]);
     setTargetedHint("");
 
@@ -432,6 +447,7 @@ export default function TeachAIFlowPlayground() {
     setMasteredPointIds([]);
     setTargetedHint("");
     setSlideOpen(false);
+    setActiveSlideIndex(0);
     setChatTurns([
       {
         id: `question-${nextQuestion.id}`,
@@ -1209,7 +1225,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                     </div>
                     <button
                       type="button"
-                      onClick={() => setSlideOpen(true)}
+                      onClick={openSlideViewer}
                       className="shrink-0 rounded-xl border border-sky-900/10 bg-white/90 px-3 py-2 text-xs font-bold text-sky-900 shadow-sm transition hover:bg-white"
                     >
                       Open slide <ExternalLink className="ml-1 inline size-3" />
@@ -1295,7 +1311,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                         </button>
                         <button
                           type="button"
-                          onClick={() => setSlideOpen(true)}
+                          onClick={openSlideViewer}
                           className="faq-chip"
                           style={{ opacity: 1, background: "white" }}
                         >
@@ -1419,29 +1435,118 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
         {/* ================================================================= */}
         {/* MODAL 1: SLIDE PREVIEW                                            */}
         {/* ================================================================= */}
-        <Dialog open={slideOpen} onOpenChange={setSlideOpen}>
-          <DialogContent className="rounded-[24px] border-black/10 bg-white p-6 sm:max-w-xl">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-bold text-[#111111]">
-                {currentLesson.label} · Slide {currentQuestion.source.slide}
-              </DialogTitle>
-              <DialogDescription className="text-xs text-[#666666]">
-                {currentQuestion.source.topic}
+        <Dialog
+          open={slideOpen}
+          onOpenChange={(open) => {
+            setSlideOpen(open);
+            if (open) setActiveSlideIndex(0);
+          }}
+        >
+          <DialogContent className="max-h-[94vh] overflow-hidden rounded-[26px] border-white/60 bg-[#f7f8f6]/95 p-0 shadow-2xl backdrop-blur-xl sm:max-w-5xl">
+            <DialogHeader className="border-b border-black/[0.08] px-5 py-4 pr-14 sm:px-6">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-[#141414] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white">
+                  {currentLesson.label}
+                </span>
+                <DialogTitle className="text-lg font-bold text-[#111111] sm:text-xl">
+                  Slide {activeSlideNumber}
+                </DialogTitle>
+                <span className="text-xs font-medium text-[#6d7672]">
+                  {activeSlideIndex + 1}/{questionSlides.length}
+                </span>
+              </div>
+              <DialogDescription className="text-xs leading-5 text-[#59635f]">
+                {currentQuestion.concept} · {currentQuestion.source.topic}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-3 pt-2 text-xs">
-              <div className="p-4 rounded-xl bg-[#f8f9fa] border border-black/10">
-                <p className="font-bold text-[#111111]">Nguyên lý cốt tử:</p>
-                <p className="text-[#555555] mt-1 leading-relaxed">
-                  {currentQuestion.source.takeaway}
-                </p>
-                <p className="text-[#888888] mt-2 font-mono">
-                  Nguồn: {currentQuestion.source.range}
-                </p>
+
+            <div className="min-h-0 space-y-3 overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-5">
+              <div className="relative mt-4 overflow-hidden rounded-2xl border border-black/10 bg-[#e7ebe8] shadow-sm">
+                <div className="relative aspect-video w-full">
+                  <Image
+                    key={activeSlideImage}
+                    src={activeSlideImage}
+                    alt={`${currentLesson.label} - Slide ${activeSlideNumber}: ${currentQuestion.source.topic}`}
+                    fill
+                    priority
+                    sizes="(max-width: 640px) 92vw, 900px"
+                    className="object-contain"
+                  />
+                </div>
+
+                {questionSlides.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveSlideIndex((index) =>
+                          index === 0 ? questionSlides.length - 1 : index - 1
+                        )
+                      }
+                      className="absolute left-2 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full border border-white/70 bg-black/70 text-white shadow-lg backdrop-blur transition hover:scale-105 hover:bg-black sm:left-3 sm:size-10"
+                      aria-label="Slide trước"
+                    >
+                      <ChevronLeft className="size-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveSlideIndex((index) =>
+                          index === questionSlides.length - 1 ? 0 : index + 1
+                        )
+                      }
+                      className="absolute right-2 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full border border-white/70 bg-black/70 text-white shadow-lg backdrop-blur transition hover:scale-105 hover:bg-black sm:right-3 sm:size-10"
+                      aria-label="Slide tiếp theo"
+                    >
+                      <ChevronRight className="size-5" />
+                    </button>
+                  </>
+                )}
               </div>
-              <p className="text-[#666666] italic">
-                💡 Xem xong hãy đóng lại và tự diễn giải bằng lời của bạn nhé!
-              </p>
+
+              {questionSlides.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {questionSlides.map((slideNumber, index) => (
+                    <button
+                      key={slideNumber}
+                      type="button"
+                      onClick={() => setActiveSlideIndex(index)}
+                      className={`group relative w-28 shrink-0 overflow-hidden rounded-xl border-2 bg-white transition sm:w-32 ${
+                        index === activeSlideIndex
+                          ? "border-emerald-600 shadow-md"
+                          : "border-transparent opacity-70 hover:opacity-100"
+                      }`}
+                      aria-label={`Mở slide ${slideNumber}`}
+                      aria-current={index === activeSlideIndex ? "true" : undefined}
+                    >
+                      <div className="relative aspect-video w-full">
+                        <Image
+                          src={`/slides/day-${currentLesson.id}/slide-${slideNumber}.jpg`}
+                          alt=""
+                          fill
+                          sizes="128px"
+                          className="object-cover"
+                        />
+                      </div>
+                      <span className="absolute bottom-1 right-1 rounded-md bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                        Slide {slideNumber}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2 rounded-2xl border border-emerald-900/10 bg-emerald-50/80 px-4 py-3 text-xs text-emerald-950 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-bold">Điểm cần chú ý</p>
+                  <p className="mt-0.5 leading-5 text-emerald-900/80">
+                    {currentQuestion.source.takeaway}
+                  </p>
+                </div>
+                <span className="shrink-0 font-mono text-[10px] text-emerald-900/60">
+                  {currentQuestion.source.range}
+                </span>
+              </div>
             </div>
           </DialogContent>
         </Dialog>

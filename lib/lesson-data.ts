@@ -1,6 +1,7 @@
 export type SlideReference = {
   range: string;
   slide: number;
+  slides: number[];
   topic: string;
   note: string;
   takeaway: string;
@@ -87,6 +88,7 @@ export const lessons: Lesson[] = [
         source: {
           range: "Day 1 · Slide 11–12 & 20",
           slide: 20,
+          slides: [11, 12, 20],
           topic: "Predict → append → rerun & Ảo giác",
           note: "Xem lại slide 11-12 về phân bố xác suất token và slide 20 về giới hạn 'nói chắc như đúng rồi'.",
           takeaway: "Sự trôi chảy (fluency) và tính chính xác (accuracy) là hai việc hoàn toàn khác nhau.",
@@ -128,6 +130,7 @@ export const lessons: Lesson[] = [
         source: {
           range: "Day 1 · Slide 14 & 16",
           slide: 14,
+          slides: [14, 16],
           topic: "Context: bàn làm việc có hạn",
           note: "Xem slide 14 về quy đổi token và hiện tượng đồ ở giữa bàn dễ bị bỏ sót (lost in the middle).",
           takeaway: "Bàn rộng không có nghĩa là dùng tốt; context càng dài càng chậm và tốn chi phí.",
@@ -168,6 +171,7 @@ export const lessons: Lesson[] = [
         source: {
           range: "Day 1 · Slide 16",
           slide: 16,
+          slides: [16, 20],
           topic: "Cho tra sổ thay vì bắt nhớ",
           note: "Xem slide 16: giữ bàn làm việc sạch và cho AI tra cứu tài liệu nghiệp vụ thay vì bắt nhớ bằng trọng số.",
           takeaway: "Grounding kết nối câu trả lời với tài liệu tham chiếu tin cậy trực tiếp trong context.",
@@ -208,6 +212,7 @@ export const lessons: Lesson[] = [
         source: {
           range: "Day 1 · Slide 29",
           slide: 29,
+          slides: [29],
           topic: "Hai núm vặn: temperature & top_p",
           note: "Xem slide 29: T=0 luôn chọn từ chắc nhất, T=1 phân phối dãn ra tạo độ biến thiên sáng tạo.",
           takeaway: "T=0 hợp code và phân tích; T cao hợp viết sáng tạo nhưng dễ lệch hướng.",
@@ -267,6 +272,7 @@ export const lessons: Lesson[] = [
         source: {
           range: "Day 2 · Slide 8",
           slide: 8,
+          slides: [8],
           topic: "Reframe câu hỏi theo Google PAIR",
           note: "Xem slide 8: 'How might we solve...?' và 'Can AI solve this in a unique way?'.",
           takeaway: "Hỏi về bài toán trước, về AI sau — AI chỉ là một phương án trong nhiều phương án khả dĩ.",
@@ -314,6 +320,7 @@ export const lessons: Lesson[] = [
         source: {
           range: "Day 2 · Slide 9–12",
           slide: 9,
+          slides: [9, 10, 11, 12],
           topic: "Quick Problem Card",
           note: "Xem slide 9-10 về khung định hình bài toán và định lượng hóa hao phí (Baseline vs Target).",
           takeaway: "Lượng hóa hao phí và nút thắt quy trình trước khi bắt tay viết code.",
@@ -360,6 +367,7 @@ export const lessons: Lesson[] = [
         source: {
           range: "Day 2 · Slide 15 & 18–21",
           slide: 21,
+          slides: [15, 18, 20, 21],
           topic: "Decision Tree: Rule vs Workflow vs Agent",
           note: "Xem slide 17-21: mỗi nhánh 'KHÔNG' là một lần tránh được độ phức tạp không cần thiết.",
           takeaway: "Đi từ đơn giản đến phức tạp: Rule tĩnh → Workflow (Prompt Chaining) → AI Agent.",
@@ -406,6 +414,7 @@ export const lessons: Lesson[] = [
         source: {
           range: "Day 2 · Slide 17 & 22–26",
           slide: 24,
+          slides: [17, 22, 23, 24, 25, 26],
           topic: "Reward function & HITL",
           note: "Xem slide 22-24 về trade-off Precision/Recall và template hành động khi tỷ lệ sửa vượt ngưỡng.",
           takeaway: "Thiết kế cơ chế an toàn và giám sát con người trước khi cho AI tự động hóa hoàn toàn.",
