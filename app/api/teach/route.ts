@@ -10,6 +10,13 @@ import {
   type AnswerEvaluationResponse,
   type ChatMessage,
 } from "@/lib/feynman-prompt";
+import {
+  findDeterministicMisconception,
+  getValidatedModelMasteryIds,
+  isLearnerAnswerRelevant,
+  preventUnconfirmedFullScore,
+  shouldMarkQuestionMastered,
+} from "@/lib/mastery-guard";
 
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -495,17 +502,23 @@ function buildLocalFallbackResponse(
   const isConfused = /^(chưa|không chắc|chịu)[!.?\s]*$|không hiểu|chưa hiểu|không rõ|giải thích lại|nói dễ hơn/i.test(clean);
   const isAmbiguous = /^(?:(cái này|ý này|nó)(?:\s+(là gì|sao|thế nào))?|sao vậy|tại sao vậy|là gì|thế nào)[!.?\s]*$/i.test(clean);
   const isOffTopic = /(thời tiết|bóng đá|nấu ăn|chứng khoán|bitcoin|du lịch|phim|âm nhạc|viết code game|chính trị)/i.test(clean);
+  const isRelevant = isLearnerAnswerRelevant(question, userMessage);
+  const deterministicMisconception = findDeterministicMisconception(
+    question,
+    userMessage
+  );
   const answerTokens = meaningfulTokens(clean);
   const matchedPoints = question.requiredPoints.filter((point) => {
+    if (deterministicMisconception) return false;
     if (!allowedPointIds.has(point.id)) return false;
     if (point.id === "concept_and_mechanism") {
-      return clean.length >= 45 && /(là|nghĩa là|hoạt động|cơ chế|bằng cách|dựa trên|gồm|quy trình|đầu tiên|sau đó|vì)/i.test(clean);
+      return isRelevant && clean.length >= 45 && /(là|nghĩa là|hoạt động|cơ chế|bằng cách|dựa trên|gồm|quy trình|đầu tiên|sau đó|vì)/i.test(clean);
     }
     if (point.id === "practical_example") {
-      return /(ví dụ|chẳng hạn|giống như|tương tự|hãy tưởng tượng|trong trường hợp|thực tế|ví von)/i.test(clean);
+      return isRelevant && /(ví dụ|chẳng hạn|giống như|tương tự|hãy tưởng tượng|trong trường hợp|thực tế|ví von)/i.test(clean);
     }
     if (point.id === "improvement_or_application") {
-      return /(khắc phục|cải thiện|cải tiến|giảm rủi ro|hạn chế|nên|cần|giải pháp|kiểm chứng|kiểm tra|giám sát|tối ưu|áp dụng)/i.test(clean);
+      return isRelevant && /(khắc phục|cải thiện|cải tiến|giảm rủi ro|hạn chế|nên|cần|giải pháp|kiểm chứng|kiểm tra|giám sát|tối ưu|áp dụng)/i.test(clean);
     }
     if (point.id === "how_might_we_solve") {
       return /(giải quyết|giải|xử lý).{0,25}(vấn đề|bài toán)|how might we solve/i.test(clean);
@@ -536,8 +549,10 @@ function buildLocalFallbackResponse(
   let botResponse: string;
   if (questionMastered) {
     botResponse = question.success;
-  } else if (isOffTopic) {
+  } else if (isOffTopic || !isRelevant) {
     botResponse = `Câu hỏi đó nằm ngoài bài “${question.concept}”, nên mình chưa đi sang chủ đề ấy nhé. Quay lại bài hiện tại: ${nextPoint?.hint}`;
+  } else if (deterministicMisconception) {
+    botResponse = `Phần này chưa đúng: ${deterministicMisconception.correction} Gợi ý để thử lại: ${nextPoint?.hint}`;
   } else if (isAmbiguous) {
     botResponse = `Mình chưa chắc “${userMessage.trim()}” đang nói tới phần nào. Bạn đang muốn hỏi về câu hỏi hiện tại, gợi ý vừa rồi hay nguồn slide?`;
   } else if (isGreeting) {
@@ -568,7 +583,9 @@ function buildLocalFallbackResponse(
         evidence: "Đối chiếu với rubric cố định của bài học.",
         feedback: `Bạn đã đề cập đúng ý “${point.title}”.`,
       })),
-      incorrect_claims: [],
+      incorrect_claims: deterministicMisconception
+        ? [deterministicMisconception]
+        : [],
       newly_mastered_point_ids: matchedPoints.map((point) => point.id),
       invalidated_point_ids: [],
     },
@@ -771,20 +788,6 @@ function normalizeHintEvaluation(
     hint: generatedHint,
     citation: question.source.range,
   };
-
-  add(
-    "concept_and_mechanism",
-    clean.length >= 45 &&
-      /(là|nghĩa là|hoạt động|cơ chế|bằng cách|dựa trên|gồm|quy trình|đầu tiên|sau đó|vì)/i.test(clean)
-  );
-  add(
-    "practical_example",
-    /(ví dụ|chẳng hạn|giống như|tương tự|hãy tưởng tượng|trong trường hợp|thực tế|ví von)/i.test(clean)
-  );
-  add(
-    "improvement_or_application",
-    /(khắc phục|cải thiện|cải tiến|giảm rủi ro|hạn chế|nên|cần|giải pháp|kiểm chứng|kiểm tra|giám sát|tối ưu|áp dụng)/i.test(clean)
-  );
 }
 
 function parseModelResponse(
@@ -830,18 +833,39 @@ function normalizeEvaluation({
   allowedPointIds: Set<string>;
 }): AnswerEvaluationResponse {
   const evaluation = parsed.evaluation;
+  const validatedModelPointIds = getValidatedModelMasteryIds({
+    evaluation,
+    question,
+    learnerMessage,
+    allowedPointIds,
+  });
   const semanticPointIds = isLearnerSupportUtterance(learnerMessage)
     ? []
-    : Array.from(new Set([
-        ...detectSemanticPointIds(question, learnerMessage),
-        ...inferCriterionIdsFromModelEvaluation(evaluation, question),
-      ])).filter((id) => allowedPointIds.has(id));
-  const newlyMasteredPointIds = Array.from(
+    : detectSemanticPointIds(question, learnerMessage).filter((id) =>
+        allowedPointIds.has(id)
+      );
+  const proposedNewlyMasteredPointIds = Array.from(
     new Set([
-      ...uniqueAllowedIds(evaluation?.newly_mastered_point_ids, allowedPointIds),
+      ...validatedModelPointIds,
       ...semanticPointIds,
     ])
   ).filter((id) => !alreadyMasteredPointIds.includes(id));
+  const modelHasIncorrectClaims =
+    Array.isArray(evaluation?.incorrect_claims) &&
+    evaluation.incorrect_claims.some(
+      (item) =>
+        item &&
+        typeof item.claim === "string" &&
+        typeof item.correction === "string"
+    );
+  const newlyMasteredPointIds = preventUnconfirmedFullScore({
+    proposedNewPointIds: proposedNewlyMasteredPointIds,
+    alreadyMasteredPointIds,
+    allPointIds: question.requiredPoints.map((point) => point.id),
+    modelQuestionMastered: parsed.question_mastered,
+    modelResponseMode: parsed.response_mode,
+    modelHasIncorrectClaims,
+  });
   const invalidatedPointIds = uniqueAllowedIds(
     evaluation?.invalidated_point_ids,
     allowedPointIds
@@ -855,9 +879,13 @@ function normalizeEvaluation({
     .filter((point) => !masteredSet.has(point.id))
     .map((point) => point.id);
 
+  const newlyMasteredSet = new Set(newlyMasteredPointIds);
   const modelCorrectPoints = Array.isArray(evaluation?.correct_points)
     ? evaluation.correct_points.filter(
-        (point) => point && allowedPointIds.has(point.id)
+        (point) =>
+          point &&
+          allowedPointIds.has(point.id) &&
+          newlyMasteredSet.has(point.id)
       )
     : [];
   const correctPoints = [
@@ -881,8 +909,24 @@ function normalizeEvaluation({
           typeof item.correction === "string"
       )
     : [];
-  const questionMastered =
-    missingPointIds.length === 0 && incorrectClaims.length === 0;
+  const deterministicMisconception = findDeterministicMisconception(
+    question,
+    learnerMessage
+  );
+  if (
+    deterministicMisconception &&
+    !incorrectClaims.some(
+      (item) => item.claim === deterministicMisconception.claim
+    )
+  ) {
+    incorrectClaims.push(deterministicMisconception);
+  }
+  const questionMastered = shouldMarkQuestionMastered({
+    missingPointIds,
+    incorrectClaims,
+    modelQuestionMastered: parsed.question_mastered,
+    modelResponseMode: parsed.response_mode,
+  });
   const nextMissingPoint = question.requiredPoints.find(
     (point) => !masteredSet.has(point.id)
   );
@@ -899,11 +943,21 @@ function normalizeEvaluation({
       ? 2
       : 1;
 
+  const modelClaimedMastery =
+    parsed.question_mastered === true || parsed.response_mode === "mastered";
+  const safeModelResponse =
+    !modelClaimedMastery &&
+    typeof parsed.bot_response === "string" &&
+    parsed.bot_response.trim() &&
+    !parsed.bot_response.trim().startsWith("{")
+      ? parsed.bot_response.trim()
+      : null;
+
   return {
     bot_response: questionMastered
       ? `${question.success}\n\nNguồn đối chiếu: ${question.source.range}.`
-      : typeof parsed.bot_response === "string" && parsed.bot_response.trim() && !parsed.bot_response.trim().startsWith("{")
-        ? parsed.bot_response.trim()
+      : safeModelResponse
+        ? safeModelResponse
         : buildLearnerFeedback({
             correctPoints,
             incorrectClaims,
@@ -923,7 +977,9 @@ function normalizeEvaluation({
     },
     feedback_summary: {
       what_you_did_well:
-        parsed.feedback_summary?.what_you_did_well || "",
+        correctPoints.length > 0
+          ? parsed.feedback_summary?.what_you_did_well || ""
+          : "",
       missing_or_vague:
         parsed.feedback_summary?.missing_or_vague ||
         nextMissingPoint?.title ||
@@ -934,36 +990,6 @@ function normalizeEvaluation({
       : parsed.hint || nextMissingPoint?.hint || null,
     citation: question.source.range,
   };
-}
-
-function inferCriterionIdsFromModelEvaluation(
-  evaluation: AnswerEvaluationResponse["evaluation"] | undefined,
-  question: Question
-): string[] {
-  if (!evaluation || !Array.isArray(evaluation.correct_points)) return [];
-  const available = new Set(question.requiredPoints.map((point) => point.id));
-  const text = evaluation.correct_points
-    .map((point) => `${point.id} ${point.evidence} ${point.feedback}`)
-    .join(" ")
-    .toLocaleLowerCase("vi");
-  const inferred: string[] = [];
-  const add = (id: string, pattern: RegExp) => {
-    if (available.has(id) && pattern.test(text)) inferred.push(id);
-  };
-  add("concept_and_mechanism", /(khái niệm|cách hoạt động|cơ chế|dự đoán token|quy trình)/i);
-  add("practical_example", /(ví dụ|minh họa|tình huống|giống như|ẩn dụ)/i);
-  add("improvement_or_application", /(khắc phục|cải tiến|cải thiện|giảm|rag|verify|kiểm chứng|áp dụng)/i);
-
-  if (
-    evaluation.correct_points.length >= 3 &&
-    Array.isArray(evaluation.incorrect_claims) &&
-    evaluation.incorrect_claims.length === 0
-  ) {
-    for (const id of ["concept_and_mechanism", "practical_example", "improvement_or_application"]) {
-      if (available.has(id)) inferred.push(id);
-    }
-  }
-  return Array.from(new Set(inferred));
 }
 
 function buildLearnerFeedback({
