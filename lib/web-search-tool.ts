@@ -72,11 +72,16 @@ function classifyTrustedVenue(item: RawSearchItem): VenueRule | null {
   ) ?? null;
 }
 
-function isTrustedRedirectTarget(url: string): boolean {
-  return classifyTrustedVenue({ title: url, url, snippet: url }) !== null;
+function isTrustedRedirectTarget(url: string, rule: VenueRule): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" && rule.hosts.some((host) => matchesHost(parsed.hostname.toLowerCase(), host));
+  } catch {
+    return false;
+  }
 }
 
-async function checkUrlHealth(url: string): Promise<{ reachable: boolean; statusCode: number | null; finalUrl: string }> {
+async function checkUrlHealth(url: string, rule: VenueRule): Promise<{ reachable: boolean; statusCode: number | null; finalUrl: string }> {
   const request = async (method: "HEAD" | "GET") => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -99,7 +104,7 @@ async function checkUrlHealth(url: string): Promise<{ reachable: boolean; status
     if ([403, 405, 501].includes(response.status)) response = await request("GET");
     const finalUrl = response.url || url;
     return {
-      reachable: response.ok && isTrustedRedirectTarget(finalUrl),
+      reachable: response.ok && isTrustedRedirectTarget(finalUrl, rule),
       statusCode: response.status,
       finalUrl,
     };
@@ -115,7 +120,7 @@ async function verifyTrustedItems(rawItems: RawSearchItem[], maxResults: number)
     .slice(0, Math.max(maxResults * 2, maxResults));
 
   const checked = await Promise.all(candidates.map(async ({ item, rule }) => {
-    const health = await checkUrlHealth(item.url);
+    const health = await checkUrlHealth(item.url, rule);
     if (!health.reachable) return null;
     return {
       title: item.title,
