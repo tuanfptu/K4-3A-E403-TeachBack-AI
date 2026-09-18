@@ -256,8 +256,8 @@ spec.md                    Hackathon AI Product Spec
 |---|---|
 | Tuan Ha (`tuanfptu`) | Product integration, UX/UI, authentication, model selection and release |
 | Lương Quang Huy (`huyluong1910`) | AI backend, evidence mining and evaluation |
-| `QuocCuongDang` | TeachBack lesson flow and learner interface |
-| `LuongToan12` | Lesson grounding and VLearn source integration |
+| `QuocCuongDang` | TeachBack lesson flow and learner interface,  UX/UI |
+| `LuongToan12` | Lesson grounding and VLearn source integration, tool search |
 
 ## Status
 
