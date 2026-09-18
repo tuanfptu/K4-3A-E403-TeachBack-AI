@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 export interface TranscriptChunk {
   chunkId: string; // e.g. "T01-001", "T04-048"
@@ -12,6 +13,26 @@ export interface TranscriptChunk {
 // Bộ nhớ đệm in-memory cho chunks để tìm kiếm siêu tốc (< 5ms)
 let cachedChunks: TranscriptChunk[] | null = null;
 
+function resolveTranscriptDirectory(): string | null {
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const configuredRoot = process.env.VLEARN_DATA_DIR?.trim();
+  const candidates = [
+    configuredRoot,
+    path.join(process.cwd(), "data", "vlearn-pack"),
+    process.env.INIT_CWD ? path.join(process.env.INIT_CWD, "data", "vlearn-pack") : null,
+    path.resolve(moduleDir, "..", "data", "vlearn-pack"),
+  ].filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const root of candidates) {
+    const transcriptDir = root.endsWith("transcript")
+      ? root
+      : path.join(root, "transcript");
+    if (fs.existsSync(transcriptDir)) return transcriptDir;
+  }
+  console.warn("[TranscriptRetriever] Không tìm thấy transcript trong các vị trí đã cấu hình.");
+  return null;
+}
+
 /**
  * Nạp và bóc tách toàn bộ ~700 chunks từ 6 file transcript trong data/vlearn-pack/transcript/
  */
@@ -19,15 +40,8 @@ export function loadAllTranscriptChunks(): TranscriptChunk[] {
   if (cachedChunks) return cachedChunks;
 
   const chunks: TranscriptChunk[] = [];
-  const transcriptDir = path.join(
-    process.cwd(),
-    "data",
-    "vlearn-pack",
-    "transcript"
-  );
-
-  if (!fs.existsSync(transcriptDir)) {
-    console.warn("[TranscriptRetriever] Không tìm thấy thư mục:", transcriptDir);
+  const transcriptDir = resolveTranscriptDirectory();
+  if (!transcriptDir) {
     return [];
   }
 

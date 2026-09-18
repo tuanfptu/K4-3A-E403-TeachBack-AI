@@ -59,18 +59,6 @@ export function AuthModal({
   const [unverifiedEmail, setUnverifiedEmail] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  useEffect(() => {
-    setMode(initialMode);
-  }, [initialMode]);
-
-  useEffect(() => {
-    if (!open) {
-      setErrorMessage("");
-      setSuccessNotice("");
-      setIsVerificationPending(false);
-    }
-  }, [open]);
-
   // Đếm ngược cooldown gửi lại email
   useEffect(() => {
     if (resendCooldown > 0) {
@@ -88,6 +76,7 @@ export function AuthModal({
       setErrorMessage("");
       setSuccessNotice("");
       setIsVerificationPending(false);
+      setMode(initialMode);
     }
     onOpenChange(nextOpen);
   };

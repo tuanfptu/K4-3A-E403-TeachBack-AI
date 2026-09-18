@@ -13,6 +13,23 @@ import {
 
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
 
+type ToolPlan = {
+  use_learner_memory: boolean;
+  use_course_rag: boolean;
+  use_web_search: boolean;
+  reason: string;
+  planned_by: "llm" | "safe_fallback";
+};
+
+type ToolObservations = {
+  learner_memory_points: number;
+  course_chunks: number;
+  course_evidence_source: "transcript" | "lesson_reference";
+  verified_research_sources: number;
+};
+
+const toolPlanCache = new Map<string, ToolPlan>();
+
 interface TeachRequestBody {
   user_message?: string;
   chat_history?: ChatMessage[];
@@ -55,6 +72,13 @@ export async function POST(request: Request) {
       allowedPointIds
     );
     const citation = question.source.range;
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    const primaryModel =
+      body.custom_model ||
+      process.env.OPENROUTER_MODEL ||
+      "google/gemini-2.5-flash";
+    const fallbackModel =
+      process.env.OPENROUTER_FALLBACK_MODEL || "openai/gpt-4o-mini";
 
     const dynamicGrounding = getDynamicGroundingContext(question.concept);
     let supplementalGrounding = dynamicGrounding.chunks
@@ -62,12 +86,27 @@ export async function POST(request: Request) {
       .map((chunk) => chunk.content)
       .join("\n\n")
       .slice(0, 5000);
+    const courseEvidenceAvailable =
+      dynamicGrounding.chunks.length > 0 || Boolean(question.referenceAnswer.trim());
+    if (!supplementalGrounding) {
+      supplementalGrounding = `[COURSE EVIDENCE · ${question.source.range}]\n${question.referenceAnswer}`;
+    }
 
     let activeCitation = citation;
     let researchSources: WebSearchResultItem[] = [];
+    const explicitlyRequestsResearch = /(paper|nghiên cứu|nguồn ngoài|tài liệu thêm|tìm hiểu sâu)/i.test(userMessage);
+    const toolPlan = await createToolPlan({
+      apiKey,
+      model: primaryModel,
+      lessonId,
+      questionId,
+      concept: question.concept,
+      courseEvidenceAvailable,
+      explicitlyRequestsResearch,
+    });
+    if (!toolPlan.use_course_rag) supplementalGrounding = "";
 
-    // Fallback sang Web Search Tool nếu RAG nội bộ không có chunk tài liệu nào
-    if (dynamicGrounding.chunks.length === 0) {
+    if (toolPlan.use_web_search) {
       console.log(
         `[Grounding Fallback] RAG không tìm thấy cho "${question.concept}", kích hoạt Web Search...`
       );
@@ -119,14 +158,6 @@ export async function POST(request: Request) {
       },
     ];
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    const primaryModel =
-      body.custom_model ||
-      process.env.OPENROUTER_MODEL ||
-      "google/gemini-2.5-flash";
-    const fallbackModel =
-      process.env.OPENROUTER_FALLBACK_MODEL || "openai/gpt-4o-mini";
-
     if (!apiKey || apiKey === "your_openrouter_api_key_here") {
       const localResponse = isHintRequested
         ? buildHintResponse(question, alreadyMasteredPointIds, chatHistory, startTime)
@@ -138,7 +169,7 @@ export async function POST(request: Request) {
             startTime
           );
       return NextResponse.json(
-        withResearchSources(localResponse, activeCitation, researchSources)
+        withResearchSources(localResponse, activeCitation, researchSources, toolPlan, dynamicGrounding.chunks.length, alreadyMasteredPointIds.length)
       );
     }
 
@@ -180,7 +211,7 @@ export async function POST(request: Request) {
               startTime
             );
         return NextResponse.json(
-          withResearchSources(localResponse, activeCitation, researchSources)
+          withResearchSources(localResponse, activeCitation, researchSources, toolPlan, dynamicGrounding.chunks.length, alreadyMasteredPointIds.length)
         );
       }
     }
@@ -196,6 +227,12 @@ export async function POST(request: Request) {
           allowedPointIds,
         });
 
+    const observations = buildToolObservations(
+      alreadyMasteredPointIds.length,
+      dynamicGrounding.chunks.length,
+      researchSources.length
+    );
+
     return NextResponse.json({
       ...normalized,
       meta: {
@@ -204,6 +241,9 @@ export async function POST(request: Request) {
         citation: activeCitation,
         usage: usageData,
         research_sources: researchSources,
+        tool_plan: toolPlan,
+        tool_observations: observations,
+        agent_loop: buildAgentLoop(toolPlan, observations),
         retrieved_chunks: dynamicGrounding.chunks.map((chunk) => ({
           chunk_id: chunk.chunkId,
           section: chunk.sectionTitle,
@@ -230,16 +270,134 @@ export async function POST(request: Request) {
 function withResearchSources<T extends { meta: Record<string, unknown> }>(
   response: T,
   citation: string,
-  researchSources: WebSearchResultItem[]
+  researchSources: WebSearchResultItem[],
+  toolPlan: ToolPlan,
+  courseChunkCount: number,
+  learnerMemoryPoints: number
 ): T {
+  const observations = buildToolObservations(learnerMemoryPoints, courseChunkCount, researchSources.length);
   return {
     ...response,
     meta: {
       ...response.meta,
       citation,
       research_sources: researchSources,
+      tool_plan: toolPlan,
+      tool_observations: observations,
+      agent_loop: buildAgentLoop(toolPlan, observations),
     },
   };
+}
+
+function buildToolObservations(
+  learnerMemoryPoints: number,
+  courseChunkCount: number,
+  researchSourceCount: number
+): ToolObservations {
+  return {
+    learner_memory_points: learnerMemoryPoints,
+    course_chunks: courseChunkCount,
+    course_evidence_source: courseChunkCount > 0 ? "transcript" : "lesson_reference",
+    verified_research_sources: researchSourceCount,
+  };
+}
+
+function buildAgentLoop(plan: ToolPlan, observations: ToolObservations) {
+  const calledTools = [
+    plan.use_learner_memory ? "learner_memory" : null,
+    plan.use_course_rag ? "course_rag" : null,
+    plan.use_web_search ? "trusted_web_search" : null,
+  ].filter((tool): tool is string => Boolean(tool));
+
+  return [
+    { stage: "plan", status: "completed", decision: plan.reason },
+    { stage: "tool", status: "completed", tools: calledTools },
+    { stage: "observe", status: "completed", observations },
+    { stage: "continue", status: "completed", action: "evaluate_and_respond" },
+  ];
+}
+
+async function createToolPlan({
+  apiKey,
+  model,
+  lessonId,
+  questionId,
+  concept,
+  courseEvidenceAvailable,
+  explicitlyRequestsResearch,
+}: {
+  apiKey: string | undefined;
+  model: string;
+  lessonId: number;
+  questionId: number;
+  concept: string;
+  courseEvidenceAvailable: boolean;
+  explicitlyRequestsResearch: boolean;
+}): Promise<ToolPlan> {
+  const cacheKey = `${lessonId}:${questionId}:${courseEvidenceAvailable}:${explicitlyRequestsResearch}`;
+  const cached = toolPlanCache.get(cacheKey);
+  if (cached) return cached;
+
+  const safeFallback: ToolPlan = {
+    use_learner_memory: true,
+    use_course_rag: courseEvidenceAvailable,
+    use_web_search: !courseEvidenceAvailable || explicitlyRequestsResearch,
+    reason: courseEvidenceAvailable && !explicitlyRequestsResearch
+      ? "Course evidence đủ cho câu hỏi hiện tại."
+      : "Cần nguồn nghiên cứu bổ sung đã kiểm chứng.",
+    planned_by: "safe_fallback",
+  };
+
+  if (!apiKey || apiKey === "your_openrouter_api_key_here") {
+    toolPlanCache.set(cacheKey, safeFallback);
+    return safeFallback;
+  }
+
+  try {
+    const result = await callOpenRouter({
+      apiKey,
+      model,
+      messages: [
+        {
+          role: "system",
+          content: "Bạn là planner của TeachBack AI. Chỉ chọn tool cần thiết, ưu tiên dữ liệu khóa học; chỉ dùng web khi course evidence thiếu hoặc người học xin paper. Trả đúng JSON, không markdown.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            concept,
+            course_evidence_available: courseEvidenceAvailable,
+            learner_memory_available: true,
+            explicitly_requests_research: explicitlyRequestsResearch,
+            available_tools: ["learner_memory", "course_rag", "trusted_web_search"],
+            output_schema: {
+              use_learner_memory: "boolean",
+              use_course_rag: "boolean",
+              use_web_search: "boolean",
+              reason: "string",
+            },
+          }),
+        },
+      ],
+    });
+    const clean = result.text.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
+    const parsed = JSON.parse(clean) as Partial<ToolPlan>;
+    const plan: ToolPlan = {
+      use_learner_memory: true,
+      use_course_rag: courseEvidenceAvailable && parsed.use_course_rag !== false,
+      use_web_search:
+        explicitlyRequestsResearch ||
+        !courseEvidenceAvailable,
+      reason: typeof parsed.reason === "string" ? parsed.reason.slice(0, 240) : safeFallback.reason,
+      planned_by: "llm",
+    };
+    toolPlanCache.set(cacheKey, plan);
+    return plan;
+  } catch (error) {
+    console.warn("[TeachBack Planner] Dùng safe fallback:", error);
+    toolPlanCache.set(cacheKey, safeFallback);
+    return safeFallback;
+  }
 }
 
 function buildLocalFallbackResponse(
@@ -547,42 +705,6 @@ function normalizeHintEvaluation(
   );
 }
 
-function buildConfigurationResponse(
-  question: Question,
-  masteredPointIds: string[],
-  startTime: number
-): AnswerEvaluationResponse & { is_mock: true; meta: Record<string, unknown> } {
-  return {
-    bot_response:
-      "Chưa thể chấm câu trả lời vì OPENROUTER_API_KEY chưa được cấu hình trong .env.local.",
-    response_mode: "needs_revision",
-    understanding_level: masteredPointIds.length > 0 ? 2 : 1,
-    question_mastered: false,
-    mastered_point_ids: masteredPointIds,
-    missing_point_ids: question.requiredPoints
-      .filter((point) => !masteredPointIds.includes(point.id))
-      .map((point) => point.id),
-    evaluation: {
-      correct_points: [],
-      incorrect_claims: [],
-      newly_mastered_point_ids: [],
-      invalidated_point_ids: [],
-    },
-    feedback_summary: {
-      what_you_did_well: "",
-      missing_or_vague: "Cần cấu hình API key để bật chấm ngữ nghĩa.",
-    },
-    hint: null,
-    citation: question.source.range,
-    is_mock: true,
-    meta: {
-      latency_ms: Date.now() - startTime,
-      model_used: "configuration_guard",
-      citation: question.source.range,
-    },
-  };
-}
-
 function parseModelResponse(
   rawResultText: string,
   citation: string
@@ -628,9 +750,10 @@ function normalizeEvaluation({
   const evaluation = parsed.evaluation;
   const semanticPointIds = isLearnerSupportUtterance(learnerMessage)
     ? []
-    : detectSemanticPointIds(question, learnerMessage).filter((id) =>
-        allowedPointIds.has(id)
-      );
+    : Array.from(new Set([
+        ...detectSemanticPointIds(question, learnerMessage),
+        ...inferCriterionIdsFromModelEvaluation(evaluation, question),
+      ])).filter((id) => allowedPointIds.has(id));
   const newlyMasteredPointIds = Array.from(
     new Set([
       ...uniqueAllowedIds(evaluation?.newly_mastered_point_ids, allowedPointIds),
@@ -729,6 +852,36 @@ function normalizeEvaluation({
       : parsed.hint || nextMissingPoint?.hint || null,
     citation: question.source.range,
   };
+}
+
+function inferCriterionIdsFromModelEvaluation(
+  evaluation: AnswerEvaluationResponse["evaluation"] | undefined,
+  question: Question
+): string[] {
+  if (!evaluation || !Array.isArray(evaluation.correct_points)) return [];
+  const available = new Set(question.requiredPoints.map((point) => point.id));
+  const text = evaluation.correct_points
+    .map((point) => `${point.id} ${point.evidence} ${point.feedback}`)
+    .join(" ")
+    .toLocaleLowerCase("vi");
+  const inferred: string[] = [];
+  const add = (id: string, pattern: RegExp) => {
+    if (available.has(id) && pattern.test(text)) inferred.push(id);
+  };
+  add("concept_and_mechanism", /(khái niệm|cách hoạt động|cơ chế|dự đoán token|quy trình)/i);
+  add("practical_example", /(ví dụ|minh họa|tình huống|giống như|ẩn dụ)/i);
+  add("improvement_or_application", /(khắc phục|cải tiến|cải thiện|giảm|rag|verify|kiểm chứng|áp dụng)/i);
+
+  if (
+    evaluation.correct_points.length >= 3 &&
+    Array.isArray(evaluation.incorrect_claims) &&
+    evaluation.incorrect_claims.length === 0
+  ) {
+    for (const id of ["concept_and_mechanism", "practical_example", "improvement_or_application"]) {
+      if (available.has(id)) inferred.push(id);
+    }
+  }
+  return Array.from(new Set(inferred));
 }
 
 function buildLearnerFeedback({

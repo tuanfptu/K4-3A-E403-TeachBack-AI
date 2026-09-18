@@ -39,6 +39,10 @@ import {
 import { getLesson } from "@/lib/lesson-data";
 import { AuthModal } from "@/components/auth-modal";
 import { auth, signOut, type User } from "@/lib/firebase";
+import {
+  loadLearnerQuestionMemory,
+  saveLearnerQuestionMemory,
+} from "@/lib/learner-memory";
 
 // =========================================================================
 // 1. DATA CONTRACTS & LESSON DEFINITIONS
@@ -109,6 +113,119 @@ export interface ChatTurn {
   isTopicSwitch?: boolean;
   switchTarget?: string;
   modelUsed?: string;
+  lessonId?: number;
+  questionId?: number;
+}
+
+function safeHostname(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "Nguồn học thuật";
+  }
+}
+
+function ResearchSourcesDisclosure({
+  initialSources = [],
+  lessonId,
+  questionId,
+}: {
+  initialSources?: TrustedResearchSource[];
+  lessonId?: number;
+  questionId?: number;
+}) {
+  const [sources, setSources] = useState(initialSources);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(initialSources.length > 0);
+  const [error, setError] = useState("");
+
+  async function loadResearch(open: boolean) {
+    if (!open || loaded || loading || !lessonId || !questionId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lesson_id: lessonId, question_id: questionId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      setSources(Array.isArray(data.sources) ? data.sources : []);
+      setError(data.message || "");
+      setLoaded(true);
+    } catch (researchError) {
+      setError(
+        researchError instanceof Error
+          ? researchError.message
+          : "Chưa thể tải paper kiểm chứng lúc này."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <details
+      className="group mt-2 rounded-xl border border-violet-200 bg-violet-50/80"
+      onToggle={(event) => void loadResearch(event.currentTarget.open)}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-left">
+        <span className="min-w-0">
+          <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-violet-800">
+            Paper kiểm chứng thêm
+          </span>
+          <span className="mt-0.5 block text-xs font-semibold text-violet-950">
+            {loading
+              ? "Đang tìm và kiểm tra link…"
+              : sources.length > 0
+                ? `${sources.length} nguồn A/A* · link đã kiểm tra`
+                : "Chỉ tìm khi bạn mở mục này"}
+          </span>
+        </span>
+        {loading ? (
+          <LoaderCircle className="size-4 shrink-0 animate-spin text-violet-700" />
+        ) : (
+          <ChevronDown className="size-4 shrink-0 text-violet-700 transition group-open:rotate-180" />
+        )}
+      </summary>
+      <div className="space-y-2 border-t border-violet-200/80 p-3">
+        {error && <p className="text-xs leading-5 text-violet-900">{error}</p>}
+        {!loading && loaded && sources.length === 0 && !error && (
+          <p className="text-xs leading-5 text-violet-900">
+            Chưa tìm thấy nguồn phù hợp từ NeurIPS, ICML, ICLR, ACL hoặc IEEE.
+          </p>
+        )}
+        {sources.map((source) => (
+          <a
+            key={source.url}
+            href={source.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-start justify-between gap-3 rounded-lg border border-violet-200/80 bg-white/80 px-3 py-2.5 transition hover:border-violet-300 hover:bg-white"
+          >
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5">
+                <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-800">
+                  {source.venue}
+                </span>
+                <span className="text-[10px] font-semibold text-emerald-700">
+                  Hạng {source.rank} · {source.credibilityScore}/100
+                </span>
+              </span>
+              <span className="mt-1 block line-clamp-2 text-xs font-semibold leading-5 text-violet-950">
+                {source.title}
+              </span>
+              <span className="mt-0.5 block truncate text-[10px] text-violet-700/75">
+                {safeHostname(source.url)}
+              </span>
+            </span>
+            <ExternalLink className="mt-1 size-3.5 shrink-0 text-violet-700 transition group-hover:-translate-y-0.5" />
+          </a>
+        ))}
+      </div>
+    </details>
+  );
 }
 
 interface AIModelOption {
@@ -340,6 +457,7 @@ export default function TeachAIFlowPlayground() {
   const [sourceOpen, setSourceOpen] = useState(false);
   const [masteredPointIds, setMasteredPointIds] = useState<string[]>([]);
   const [targetedHint, setTargetedHint] = useState<string>("");
+  const [memoryHydrated, setMemoryHydrated] = useState(false);
 
   // Model Selection
   const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
@@ -444,6 +562,41 @@ export default function TeachAIFlowPlayground() {
     currentQuestion.source.slide;
   const activeSlideImage = `/slides/day-${currentLesson.id}/slide-${activeSlideNumber}.jpg`;
 
+  useEffect(() => {
+    if (!currentUser || screen !== "session") return;
+    let cancelled = false;
+    setMemoryHydrated(false);
+    void loadLearnerQuestionMemory(
+      currentUser.uid,
+      selectedLessonId,
+      currentQuestion.id
+    ).then((memory) => {
+      if (cancelled) return;
+      const allowedIds = new Set(currentQuestion.requiredPoints.map((point) => point.id));
+      const restoredIds = (memory?.masteredPointIds ?? []).filter((id) => allowedIds.has(id));
+      setMasteredPointIds(restoredIds);
+      setAttempts(memory?.attempts ?? 0);
+      setPhase(restoredIds.length === currentQuestion.requiredPoints.length ? "understood" : "answering");
+      setMemoryHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentQuestion, currentUser, screen, selectedLessonId]);
+
+  useEffect(() => {
+    if (!currentUser || screen !== "session" || !memoryHydrated) return;
+    const timer = window.setTimeout(() => {
+      void saveLearnerQuestionMemory(
+        currentUser.uid,
+        selectedLessonId,
+        currentQuestion.id,
+        { masteredPointIds, attempts }
+      );
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [attempts, currentQuestion.id, currentUser, masteredPointIds, memoryHydrated, screen, selectedLessonId]);
+
   // Cuộn tự động tin nhắn mới
   useEffect(() => {
     if (screen === "session") {
@@ -514,6 +667,7 @@ export default function TeachAIFlowPlayground() {
     setActiveSlideIndex(0);
     setMasteredPointIds([]);
     setTargetedHint("");
+    setMemoryHydrated(false);
 
     const targetLesson =
       TEACH_LESSONS.find((item) => item.id === lessonId) ?? TEACH_LESSONS[0];
@@ -598,6 +752,8 @@ export default function TeachAIFlowPlayground() {
         isTopicSwitch: isSwitch,
         switchTarget: switchTarget,
         modelUsed: data.meta?.model_used || selectedModel,
+        lessonId: currentLesson.id,
+        questionId: currentQuestion.id,
       };
 
       setChatTurns((prev) => [...prev, botTurn]);
@@ -646,6 +802,7 @@ export default function TeachAIFlowPlayground() {
     setSourceOpen(false);
     setMasteredPointIds([]);
     setTargetedHint("");
+    setMemoryHydrated(false);
     setSlideOpen(false);
     setActiveSlideIndex(0);
     setChatTurns([
@@ -1097,9 +1254,12 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-2 rounded-full bg-white/90 border border-black/10 px-2.5 py-1 text-xs font-semibold shadow-xs">
                     {currentUser.photoURL ? (
-                      <img
+                      <Image
                         src={currentUser.photoURL}
                         alt={currentUser.displayName || "Avatar"}
+                        width={20}
+                        height={20}
+                        unoptimized
                         className="size-5 rounded-full object-cover"
                       />
                     ) : (
@@ -1372,49 +1532,12 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                               </button>
                             )}
 
-                            {turn.researchSources && turn.researchSources.length > 0 && (
-                              <details className="group mt-2 rounded-xl border border-violet-200 bg-violet-50/80">
-                                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-left">
-                                  <span className="min-w-0">
-                                    <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-violet-800">
-                                      Paper kiểm chứng thêm
-                                    </span>
-                                    <span className="mt-0.5 block text-xs font-semibold text-violet-950">
-                                      {turn.researchSources.length} nguồn A/A* · link đã kiểm tra
-                                    </span>
-                                  </span>
-                                  <ChevronDown className="size-4 shrink-0 text-violet-700 transition group-open:rotate-180" />
-                                </summary>
-                                <div className="space-y-2 border-t border-violet-200/80 p-3">
-                                  {turn.researchSources.map((source) => (
-                                  <a
-                                    key={source.url}
-                                    href={source.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="group flex items-start justify-between gap-3 rounded-lg border border-violet-200/80 bg-white/80 px-3 py-2.5 transition hover:border-violet-300 hover:bg-white"
-                                  >
-                                    <span className="min-w-0">
-                                      <span className="flex items-center gap-1.5">
-                                        <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-800">
-                                          {source.venue}
-                                        </span>
-                                        <span className="text-[10px] font-semibold text-emerald-700">
-                                          Hạng {source.rank} · {source.credibilityScore}/100
-                                        </span>
-                                      </span>
-                                      <span className="mt-1 block line-clamp-2 text-xs font-semibold leading-5 text-violet-950">
-                                        {source.title}
-                                      </span>
-                                      <span className="mt-0.5 block truncate text-[10px] text-violet-700/75">
-                                        {new URL(source.url).hostname}
-                                      </span>
-                                    </span>
-                                    <ExternalLink className="mt-1 size-3.5 shrink-0 text-violet-700 transition group-hover:-translate-y-0.5" />
-                                  </a>
-                                  ))}
-                                </div>
-                              </details>
+                            {turn.role === "assistant" && turn.lessonId && turn.questionId && (
+                              <ResearchSourcesDisclosure
+                                initialSources={turn.researchSources}
+                                lessonId={turn.lessonId}
+                                questionId={turn.questionId}
+                              />
                             )}
 
                             {/* Nút hành động nếu là trường hợp hỏi khéo chuyển chủ đề */}

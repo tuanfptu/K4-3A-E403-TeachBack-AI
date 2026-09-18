@@ -24,7 +24,13 @@ export interface WebSearchToolResult {
   source: "tavily" | "duckduckgo" | "none";
   summary: string;
   items: WebSearchResultItem[];
+  cached?: boolean;
 }
+
+type CachedSearch = { expiresAt: number; result: WebSearchToolResult };
+const SEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const EMPTY_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
+const researchCache = new Map<string, CachedSearch>();
 
 type RawSearchItem = {
   title: string;
@@ -225,19 +231,36 @@ export async function searchWebKnowledge(query: string, options: { maxResults?: 
   const maxResults = Math.min(Math.max(options.maxResults ?? 3, 1), 5);
   if (!cleanQuery) return { query: "", found: false, source: "none", summary: "", items: [] };
 
+  const cacheKey = `${cleanQuery.toLocaleLowerCase()}::${maxResults}`;
+  const cached = researchCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { ...cached.result, cached: true };
+  }
+
   const tavilyKey = process.env.TAVILY_API_KEY;
   if (tavilyKey && tavilyKey !== "your_tavily_api_key_here") {
     const tavilyResult = await searchWithTavily(cleanQuery, tavilyKey, maxResults);
-    if (tavilyResult) return tavilyResult;
+    if (tavilyResult) {
+      researchCache.set(cacheKey, { expiresAt: Date.now() + SEARCH_CACHE_TTL_MS, result: tavilyResult });
+      return tavilyResult;
+    }
   }
   const duckDuckGoResult = await searchWithDuckDuckGo(cleanQuery, maxResults);
-  if (duckDuckGoResult) return duckDuckGoResult;
+  if (duckDuckGoResult) {
+    researchCache.set(cacheKey, { expiresAt: Date.now() + SEARCH_CACHE_TTL_MS, result: duckDuckGoResult });
+    return duckDuckGoResult;
+  }
 
-  return {
+  const emptyResult: WebSearchToolResult = {
     query: cleanQuery,
     found: false,
     source: "none",
     summary: "Không tìm thấy nguồn còn hoạt động từ NeurIPS, ICML, ICLR, ACL hoặc IEEE.",
     items: [],
   };
+  researchCache.set(cacheKey, {
+    expiresAt: Date.now() + EMPTY_SEARCH_CACHE_TTL_MS,
+    result: emptyResult,
+  });
+  return emptyResult;
 }
