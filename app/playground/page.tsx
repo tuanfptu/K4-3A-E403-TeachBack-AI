@@ -98,6 +98,7 @@ export interface TeachAPIResponse {
     research_sources?: TrustedResearchSource[];
     is_topic_switch?: boolean;
     switch_target?: string;
+    interaction_type?: "assessment" | "social";
   };
 }
 
@@ -700,7 +701,7 @@ export default function TeachAIFlowPlayground() {
     };
 
     setChatTurns((prev) => [...prev, userTurn]);
-    const isConversationOnly = /^(hi|hello|hey|chào|xin chào|alo|ok|okay|ừ|ừm|vâng|dạ|đúng rồi)[!.?\s]*$/i.test(clean);
+    const isConversationOnly = /^(?:(?:hi|hello|hey|alo|chào|xin chào|cảm ơn|cám ơn|thanks|thank you|tạm biệt|bye|goodbye|hẹn gặp lại)(?:\s+(?:bạn|thầy|cô|em|anh|chị|mọi người|nhé|nha|ạ))*|ok|okay|ừ|ừm|vâng|dạ|đúng rồi)[!.?\s]*$/i.test(clean);
     const isHelpSignal = /^(chưa|không chắc|chịu|không biết|không hiểu|chưa hiểu|không rõ)[!.?\s]*$/i.test(clean);
     if (!isHint && !isConversationOnly && !isHelpSignal) {
       setAttempts((value) => value + 1);
@@ -729,6 +730,7 @@ export default function TeachAIFlowPlayground() {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const data = (await response.json()) as TeachAPIResponse;
+      const isSocial = data.meta?.interaction_type === "social";
       const isSwitch = Boolean(data.meta?.is_topic_switch);
       const switchTarget = data.meta?.switch_target;
 
@@ -747,13 +749,13 @@ export default function TeachAIFlowPlayground() {
         response_mode: data.response_mode,
         feedback_summary: data.feedback_summary,
         evaluation: data.evaluation,
-        citation: data.citation || currentLesson.citationCode,
+        citation: isSocial ? undefined : data.citation || currentLesson.citationCode,
         researchSources: data.meta?.research_sources,
         isTopicSwitch: isSwitch,
         switchTarget: switchTarget,
-        modelUsed: data.meta?.model_used || selectedModel,
-        lessonId: currentLesson.id,
-        questionId: currentQuestion.id,
+        modelUsed: isSocial ? undefined : data.meta?.model_used || selectedModel,
+        lessonId: isSocial ? undefined : currentLesson.id,
+        questionId: isSocial ? undefined : currentQuestion.id,
       };
 
       setChatTurns((prev) => [...prev, botTurn]);

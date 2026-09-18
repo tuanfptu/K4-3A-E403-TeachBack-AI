@@ -71,6 +71,28 @@ export async function POST(request: Request) {
       body.mastered_point_ids,
       allowedPointIds
     );
+
+    const socialReply = !isHintRequested
+      ? buildSocialConversationReply(userMessage, question.prompt)
+      : null;
+    if (socialReply) {
+      return NextResponse.json({
+        bot_response: socialReply,
+        question_mastered: false,
+        mastered_point_ids: alreadyMasteredPointIds,
+        missing_point_ids: question.requiredPoints
+          .filter((point) => !alreadyMasteredPointIds.includes(point.id))
+          .map((point) => point.id),
+        hint: null,
+        meta: {
+          latency_ms: Date.now() - startTime,
+          model_used: "conversation_router",
+          interaction_type: "social",
+          research_sources: [],
+        },
+      });
+    }
+
     const citation = question.source.range;
     const apiKey = process.env.OPENROUTER_API_KEY;
     const primaryModel =
@@ -265,6 +287,23 @@ export async function POST(request: Request) {
       { status }
     );
   }
+}
+
+function buildSocialConversationReply(
+  learnerMessage: string,
+  currentQuestion: string
+): string | null {
+  const clean = learnerMessage.trim().toLocaleLowerCase("vi");
+  if (/^(hi|hello|hey|alo|chào|xin chào)(?:\s+(bạn|thầy|cô|em|anh|chị|mọi người|nhé|nha|ạ))*[!.?\s]*$/i.test(clean)) {
+    return `Xin chào bạn 😄 Mình ở đây để học cùng bạn. Khi sẵn sàng, bạn thử trả lời câu “${currentQuestion}” theo cách hiểu của mình nhé.`;
+  }
+  if (/^(cảm ơn|cám ơn|thanks|thank you)(?:\s+(bạn|thầy|cô|em|anh|chị|nhé|nha|ạ))*[!.?\s]*$/i.test(clean)) {
+    return "Không có gì nhé! Mình sẽ tiếp tục đồng hành và chỉ gợi mở đúng phần bạn còn thiếu. Bạn muốn thử trả lời câu hiện tại chứ?";
+  }
+  if (/^(tạm biệt|bye|goodbye|hẹn gặp lại)(?:\s+(bạn|thầy|cô|em|anh|chị|nhé|nha|ạ))*[!.?\s]*$/i.test(clean)) {
+    return "Tạm biệt bạn nhé! Khi quay lại, mình sẽ tiếp tục từ đúng phần bạn đang học.";
+  }
+  return null;
 }
 
 function withResearchSources<T extends { meta: Record<string, unknown> }>(
