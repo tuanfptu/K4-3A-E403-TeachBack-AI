@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { getLesson } from "@/lib/lesson-data";
 import { AuthModal } from "@/components/auth-modal";
+import { FlashcardDeckModal } from "@/components/flashcard-deck-modal";
 import { auth, signOut, type User } from "@/lib/firebase";
 import {
   loadLearnerQuestionMemory,
@@ -540,6 +541,10 @@ export default function TeachAIFlowPlayground() {
   const [copiedFlashcard, setCopiedFlashcard] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [hintDrawerOpen, setHintDrawerOpen] = useState(false);
+
+  // Flashcard Deck 3D modal
+  const [flashcardModalOpen, setFlashcardModalOpen] = useState(false);
+  const [flashcardDeckLessonId, setFlashcardDeckLessonId] = useState(1);
 
   // Chat scroll container
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -1243,6 +1248,17 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                 </div>
               )}
               <button
+                type="button"
+                onClick={() => {
+                  setFlashcardDeckLessonId(currentLesson.id);
+                  setFlashcardModalOpen(true);
+                }}
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-white/80 hover:bg-white px-3 py-1 text-xs font-semibold text-[#222222] border border-black/10 transition shadow-xs cursor-pointer"
+                title="Mở Bộ thẻ Flashcard 3D ôn tập"
+              >
+                <span>🃏 Flashcards</span>
+              </button>
+              <button
                 onClick={() => setScreen("lessons")}
                 className="btn-dark"
                 style={{ padding: "8px 14px", fontSize: "12.5px" }}
@@ -1252,6 +1268,17 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
             </div>
           ) : (
             <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setFlashcardDeckLessonId(1);
+                  setFlashcardModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/85 hover:bg-white px-3.5 py-1.5 text-xs font-semibold text-[#111111] border border-black/10 transition shadow-xs cursor-pointer"
+                title="Mở Bộ thẻ Flashcard 3D ôn tập"
+              >
+                <span>🃏 Bộ thẻ Flashcard 3D</span>
+              </button>
               <span className="badge hidden md:inline-flex">
                 <span className="badge__tag">TeachBack</span>
                 <span>Learn by explaining</span>
@@ -1349,10 +1376,24 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                       </p>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-black/[0.06] flex items-center justify-between">
-                      <span className="text-xs text-[#777777]">
-                        ⏱️ {lesson.time}
-                      </span>
+                    <div className="mt-4 pt-3 border-t border-black/[0.06] flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-[#777777]">
+                          ⏱️ {lesson.time}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFlashcardDeckLessonId(lesson.id);
+                            setFlashcardModalOpen(true);
+                          }}
+                          className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 hover:text-black bg-black/[0.04] hover:bg-black/[0.08] px-2.5 py-1 rounded-lg border border-black/5 transition cursor-pointer"
+                          title={`Xem bộ thẻ Flashcard 3D của ${lesson.label}`}
+                        >
+                          <span>🃏 Ôn thẻ ({lesson.label})</span>
+                        </button>
+                      </div>
                       <span className="text-xs font-semibold text-[#111111] flex items-center gap-1 group-hover:translate-x-0.5 transition">
                         {!currentUser ? (
                           <span className="flex items-center gap-1.5 text-zinc-500 bg-black/[0.04] px-2.5 py-1 rounded-lg border border-black/5 text-[11px] font-medium">
@@ -2199,23 +2240,37 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-black/[0.06]">
-              <button
-                onClick={handleCopyFlashcard}
-                className="text-xs font-semibold px-4 py-2 rounded-xl border border-black/15 bg-white hover:bg-black/5"
-              >
-                {copiedFlashcard ? "✓ Đã chép Flashcard!" : "Sao chép Flashcard"}
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-black/[0.06]">
               <button
                 onClick={() => {
                   setScorecardModalOpen(false);
-                  setScreen("lessons");
+                  setFlashcardDeckLessonId(currentLesson.id);
+                  setFlashcardModalOpen(true);
                 }}
-                className="btn-dark"
-                style={{ padding: "8px 16px", fontSize: "12px" }}
+                className="flex items-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl bg-[#141414] hover:bg-black text-white shadow-sm transition cursor-pointer"
               >
-                Học bài khác →
+                <Sparkles className="size-3.5 text-emerald-400" />
+                <span>🎉 Mở Bộ thẻ Flashcard 3D ({currentLesson.label}) →</span>
               </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyFlashcard}
+                  className="text-xs font-semibold px-3 py-2 rounded-xl border border-black/15 bg-white hover:bg-black/5"
+                >
+                  {copiedFlashcard ? "✓ Đã chép!" : "Sao chép"}
+                </button>
+                <button
+                  onClick={() => {
+                    setScorecardModalOpen(false);
+                    setScreen("lessons");
+                  }}
+                  className="btn-dark"
+                  style={{ padding: "8px 14px", fontSize: "12px" }}
+                >
+                  Chọn bài khác
+                </button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -2236,7 +2291,17 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
             }
           }}
         />
+
+        {/* ================================================================= */}
+        {/* MODAL 4: INTERACTIVE 3D FLIP FLASHCARD DECK                       */}
+        {/* ================================================================= */}
+        <FlashcardDeckModal
+          open={flashcardModalOpen}
+          onClose={() => setFlashcardModalOpen(false)}
+          initialLessonId={flashcardDeckLessonId}
+        />
       </div>
     </div>
   );
 }
+
