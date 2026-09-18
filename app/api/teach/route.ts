@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { getLesson, type Question } from "@/lib/lesson-data";
 import { getDynamicGroundingContext } from "@/lib/transcript-retriever";
-import { searchWebKnowledge } from "@/lib/web-search-tool";
+import {
+  searchWebKnowledge,
+  type WebSearchResultItem,
+} from "@/lib/web-search-tool";
 import {
   buildAnswerEvaluationPrompt,
   type AnswerEvaluationResponse,
@@ -67,6 +70,7 @@ export async function POST(request: Request) {
       .slice(0, 5000);
 
     let activeCitation = citation;
+    let researchSources: WebSearchResultItem[] = [];
 
     // Fallback sang Web Search Tool nếu RAG nội bộ không có chunk tài liệu nào
     if (dynamicGrounding.chunks.length === 0) {
@@ -78,8 +82,9 @@ export async function POST(request: Request) {
         { maxResults: 2 }
       );
       if (webResult.found) {
-        supplementalGrounding = `[TÀI LIỆU TRA CỨU WEB (${webResult.source})]:\n${webResult.summary}`;
-        activeCitation = `${citation} + Web (${webResult.source})`;
+        researchSources = webResult.items;
+        supplementalGrounding = `[NGUỒN NGHIÊN CỨU ĐÃ KIỂM CHỨNG (${webResult.source})]:\n${webResult.summary}`;
+        activeCitation = `${citation} + ${researchSources.map((source) => source.venue).join(", ")}`;
       }
     }
 
@@ -126,14 +131,15 @@ export async function POST(request: Request) {
       process.env.OPENROUTER_FALLBACK_MODEL || "openai/gpt-4o-mini";
 
     if (!apiKey || apiKey === "your_openrouter_api_key_here") {
+      const localResponse = buildLocalFallbackResponse(
+        question,
+        userMessage,
+        alreadyMasteredPointIds,
+        allowedPointIds,
+        startTime
+      );
       return NextResponse.json(
-        buildLocalFallbackResponse(
-          question,
-          userMessage,
-          alreadyMasteredPointIds,
-          allowedPointIds,
-          startTime
-        )
+        withResearchSources(localResponse, activeCitation, researchSources)
       );
     }
 
@@ -165,19 +171,20 @@ export async function POST(request: Request) {
           "[TeachBack AI] Remote models unavailable; using local lesson rubric:",
           fallbackError
         );
-        return NextResponse.json(
-          buildLocalFallbackResponse(
+        const localResponse = buildLocalFallbackResponse(
             question,
             userMessage,
             alreadyMasteredPointIds,
             allowedPointIds,
             startTime
-          )
+          );
+        return NextResponse.json(
+          withResearchSources(localResponse, activeCitation, researchSources)
         );
       }
     }
 
-    const parsed = parseModelResponse(rawResultText, citation);
+    const parsed = parseModelResponse(rawResultText, activeCitation);
     const normalized = normalizeEvaluation({
       parsed,
       question,
@@ -191,8 +198,9 @@ export async function POST(request: Request) {
       meta: {
         latency_ms: Date.now() - startTime,
         model_used: modelUsed,
-        citation,
+        citation: activeCitation,
         usage: usageData,
+        research_sources: researchSources,
         retrieved_chunks: dynamicGrounding.chunks.map((chunk) => ({
           chunk_id: chunk.chunkId,
           section: chunk.sectionTitle,
@@ -214,6 +222,21 @@ export async function POST(request: Request) {
       { status }
     );
   }
+}
+
+function withResearchSources<T extends { meta: Record<string, unknown> }>(
+  response: T,
+  citation: string,
+  researchSources: WebSearchResultItem[]
+): T {
+  return {
+    ...response,
+    meta: {
+      ...response.meta,
+      citation,
+      research_sources: researchSources,
+    },
+  };
 }
 
 function buildLocalFallbackResponse(

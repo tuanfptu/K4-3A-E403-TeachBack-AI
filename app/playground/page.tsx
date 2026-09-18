@@ -47,6 +47,18 @@ import { auth, signOut, type User } from "@/lib/firebase";
 export type Screen = "lessons" | "session";
 export type Phase = "answering" | "loading" | "understood";
 
+export interface TrustedResearchSource {
+  title: string;
+  url: string;
+  snippet: string;
+  venue: "NeurIPS" | "ICML" | "ICLR" | "ACL" | "IEEE";
+  credibilityScore: number;
+  credibilityReasons: string[];
+  isReachable: boolean;
+  statusCode: number | null;
+  checkedAt: string;
+}
+
 export interface TeachAPIResponse {
   bot_response?: string;
   response_mode?: "partial" | "needs_revision" | "mastered";
@@ -78,6 +90,7 @@ export interface TeachAPIResponse {
     latency_ms?: number;
     model_used?: string;
     citation?: string;
+    research_sources?: TrustedResearchSource[];
     is_topic_switch?: boolean;
     switch_target?: string;
   };
@@ -91,6 +104,7 @@ export interface ChatTurn {
   feedback_summary?: TeachAPIResponse["feedback_summary"];
   evaluation?: TeachAPIResponse["evaluation"];
   citation?: string;
+  researchSources?: TrustedResearchSource[];
   isTopicSwitch?: boolean;
   switchTarget?: string;
   modelUsed?: string;
@@ -579,6 +593,7 @@ export default function TeachAIFlowPlayground() {
         feedback_summary: data.feedback_summary,
         evaluation: data.evaluation,
         citation: data.citation || currentLesson.citationCode,
+        researchSources: data.meta?.research_sources,
         isTopicSwitch: isSwitch,
         switchTarget: switchTarget,
         modelUsed: data.meta?.model_used || selectedModel,
@@ -1354,6 +1369,46 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                                   Mở slide <ExternalLink className="ml-1 inline size-3" />
                                 </span>
                               </button>
+                            )}
+
+                            {turn.researchSources && turn.researchSources.length > 0 && (
+                              <div className="mt-2 space-y-2 rounded-xl border border-violet-200 bg-violet-50/80 p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-violet-800">
+                                    Paper đã kiểm chứng
+                                  </span>
+                                  <span className="text-[10px] font-medium text-violet-700">
+                                    Link còn hoạt động
+                                  </span>
+                                </div>
+                                {turn.researchSources.map((source) => (
+                                  <a
+                                    key={source.url}
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="group flex items-start justify-between gap-3 rounded-lg border border-violet-200/80 bg-white/80 px-3 py-2.5 transition hover:border-violet-300 hover:bg-white"
+                                  >
+                                    <span className="min-w-0">
+                                      <span className="flex items-center gap-1.5">
+                                        <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-800">
+                                          {source.venue}
+                                        </span>
+                                        <span className="text-[10px] font-semibold text-emerald-700">
+                                          Uy tín {source.credibilityScore}/100
+                                        </span>
+                                      </span>
+                                      <span className="mt-1 block line-clamp-2 text-xs font-semibold leading-5 text-violet-950">
+                                        {source.title}
+                                      </span>
+                                      <span className="mt-0.5 block truncate text-[10px] text-violet-700/75">
+                                        {new URL(source.url).hostname}
+                                      </span>
+                                    </span>
+                                    <ExternalLink className="mt-1 size-3.5 shrink-0 text-violet-700 transition group-hover:-translate-y-0.5" />
+                                  </a>
+                                ))}
+                              </div>
                             )}
 
                             {/* Nút hành động nếu là trường hợp hỏi khéo chuyển chủ đề */}
