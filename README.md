@@ -250,15 +250,6 @@ spec.md                    Hackathon AI Product Spec
 - Only the minimum relevant lesson context should be sent to an external model provider.
 - Repository artifacts use aggregate counts and short, traceable examples rather than republishing the complete dataset.
 
-## Team
-
-| Contributor | Primary contribution |
-|---|---|
-| Tuan Ha (`tuanfptu`) | Product integration, UX/UI, authentication, model selection and release |
-| Lương Quang Huy (`huyluong1910`) | AI backend, evidence mining and evaluation |
-| `QuocCuongDang` | TeachBack lesson flow and learner interface,  UX/UI |
-| `LuongToan12` | Lesson grounding and VLearn source integration, tool search |
-
 ## Status
 
 TeachBack AI is a working hackathon prototype. It is designed for supervised learning support and is not a production assessment system or a substitute for an instructor.
