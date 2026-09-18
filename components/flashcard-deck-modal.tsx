@@ -27,31 +27,34 @@ export function FlashcardDeckModal({
   const [activeLessonId, setActiveLessonId] = useState<number>(initialLessonId);
   const [currentCardIndex, setCurrentCardIndex] = useState<number>(0);
   const [isFlipped, setIsFlipped] = useState<boolean>(false);
-  const [masteredCards, setMasteredCards] = useState<Record<string, boolean>>({});
-  const [copied, setCopied] = useState<boolean>(false);
-
-  // Khi modal mở với initialLessonId mới, luôn reset về thẻ đầu tiên và cô lập đúng bài học đó
-  useEffect(() => {
-    if (open) {
-      setActiveLessonId(initialLessonId);
-      setCurrentCardIndex(0);
-      setIsFlipped(false);
-    }
-  }, [open, initialLessonId]);
-
-  // Đọc danh sách thẻ đã thuộc từ localStorage
-  useEffect(() => {
+  const [masteredCards, setMasteredCards] = useState<Record<string, boolean>>(() => {
     if (typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem("teachai_mastered_flashcards");
         if (saved) {
-          setMasteredCards(JSON.parse(saved));
+          return JSON.parse(saved);
         }
       } catch (err) {
         console.warn("Could not load mastered flashcards", err);
       }
     }
-  }, []);
+    return {};
+  });
+  const [copied, setCopied] = useState<boolean>(false);
+
+  // Khi modal mở với initialLessonId mới, luôn reset về thẻ đầu tiên và cô lập đúng bài học đó
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevLessonId, setPrevLessonId] = useState(initialLessonId);
+
+  if (open !== prevOpen || initialLessonId !== prevLessonId) {
+    setPrevOpen(open);
+    setPrevLessonId(initialLessonId);
+    if (open) {
+      setActiveLessonId(initialLessonId);
+      setCurrentCardIndex(0);
+      setIsFlipped(false);
+    }
+  }
 
   const deck = useMemo<FlashcardItem[]>(() => {
     return FLASHCARD_DECKS[activeLessonId] || FLASHCARD_DECKS[1];
@@ -59,6 +62,16 @@ export function FlashcardDeckModal({
 
   const currentCard = deck[currentCardIndex] || deck[0];
   const isCardMastered = Boolean(masteredCards[currentCard?.id]);
+
+  function handleNext() {
+    setIsFlipped(false);
+    setCurrentCardIndex((idx) => (idx + 1) % deck.length);
+  }
+
+  function handlePrev() {
+    setIsFlipped(false);
+    setCurrentCardIndex((idx) => (idx - 1 + deck.length) % deck.length);
+  }
 
   // Phím tắt: Left/Right chuyển thẻ, Space/Enter lật thẻ, Esc đóng modal
   useEffect(() => {
@@ -69,10 +82,12 @@ export function FlashcardDeckModal({
         onClose();
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
-        handlePrev();
+        setIsFlipped(false);
+        setCurrentCardIndex((idx) => (idx - 1 + deck.length) % deck.length);
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        handleNext();
+        setIsFlipped(false);
+        setCurrentCardIndex((idx) => (idx + 1) % deck.length);
       } else if (e.key === " " || e.key === "Enter") {
         if (
           document.activeElement?.tagName !== "BUTTON" &&
@@ -86,17 +101,7 @@ export function FlashcardDeckModal({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, currentCardIndex, deck.length]);
-
-  function handleNext() {
-    setIsFlipped(false);
-    setCurrentCardIndex((idx) => (idx + 1) % deck.length);
-  }
-
-  function handlePrev() {
-    setIsFlipped(false);
-    setCurrentCardIndex((idx) => (idx - 1 + deck.length) % deck.length);
-  }
+  }, [open, onClose, deck.length]);
 
   function toggleMastered(cardId: string) {
     setMasteredCards((prev) => {
