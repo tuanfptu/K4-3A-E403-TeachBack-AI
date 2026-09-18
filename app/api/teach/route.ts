@@ -93,6 +93,27 @@ export async function POST(request: Request) {
       });
     }
 
+    const redirectReply = !isHintRequested
+      ? buildOutOfScopeReply(userMessage, lesson.id, lesson.title, question)
+      : null;
+    if (redirectReply) {
+      return NextResponse.json({
+        bot_response: redirectReply,
+        question_mastered: false,
+        mastered_point_ids: alreadyMasteredPointIds,
+        missing_point_ids: question.requiredPoints
+          .filter((point) => !alreadyMasteredPointIds.includes(point.id))
+          .map((point) => point.id),
+        hint: null,
+        meta: {
+          latency_ms: Date.now() - startTime,
+          model_used: "lesson_scope_router",
+          interaction_type: "redirect",
+          research_sources: [],
+        },
+      });
+    }
+
     const citation = question.source.range;
     const apiKey = process.env.OPENROUTER_API_KEY;
     const primaryModel =
@@ -304,6 +325,28 @@ function buildSocialConversationReply(
     return "Tạm biệt bạn nhé! Khi quay lại, mình sẽ tiếp tục từ đúng phần bạn đang học.";
   }
   return null;
+}
+
+function buildOutOfScopeReply(
+  learnerMessage: string,
+  lessonId: number,
+  lessonTitle: string,
+  question: Question
+): string | null {
+  const clean = learnerMessage.trim().toLocaleLowerCase("vi");
+  const clearlyUnrelated = /(thời tiết|bóng đá|chứng khoán|bitcoin|tiền ảo|du lịch|nấu ăn|món ăn|phim|âm nhạc|ca sĩ|chính trị|tình yêu|game|viết code game|kể chuyện cười)/i.test(clean);
+  const dayOneTerms = /(llm|token|context|ngữ cảnh|attention|transformer|hallucination|ảo giác|rag|grounding|temperature|mô hình ngôn ngữ)/i;
+  const dayTwoTerms = /(google pair|problem statement|bài toán|rule|workflow|agent|human.?in.?the.?loop|hitl|precision|recall|false positive|false negative|tự động hoá)/i;
+  const belongsToAnotherLesson = lessonId === 1
+    ? dayTwoTerms.test(clean) && !dayOneTerms.test(clean)
+    : dayOneTerms.test(clean) && !dayTwoTerms.test(clean);
+  const looksLikeQuestion = /\?|^(tại sao|vì sao|cái gì|.*là gì|như thế nào|làm sao|giải thích|cho hỏi|bạn biết)/i.test(clean);
+  const currentLessonTerms = lessonId === 1 ? dayOneTerms : dayTwoTerms;
+  const unknownQuestion = looksLikeQuestion && clean.length > 12 && !currentLessonTerms.test(clean);
+
+  if (!clearlyUnrelated && !belongsToAnotherLesson && !unknownQuestion) return null;
+
+  return `Nội dung đó nằm ngoài bài “${lessonTitle}”, nên mình chưa đi sang chủ đề ấy nhé. Mình đưa bạn về phần đang học: ${question.concept}. Với câu “${question.prompt}”, bạn thử nói một ý ngắn mà bạn đang hiểu được không?`;
 }
 
 function withResearchSources<T extends { meta: Record<string, unknown> }>(
