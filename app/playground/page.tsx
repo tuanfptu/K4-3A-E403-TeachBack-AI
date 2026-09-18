@@ -1268,17 +1268,6 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
             </div>
           ) : (
             <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setFlashcardDeckLessonId(1);
-                  setFlashcardModalOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-full bg-white/85 hover:bg-white px-3.5 py-1.5 text-xs font-semibold text-[#111111] border border-black/10 transition shadow-xs cursor-pointer"
-                title="Mở Bộ thẻ Flashcard 3D ôn tập"
-              >
-                <span>🃏 Bộ thẻ Flashcard 3D</span>
-              </button>
               <span className="badge hidden md:inline-flex">
                 <span className="badge__tag">TeachBack</span>
                 <span>Learn by explaining</span>
@@ -1389,9 +1378,9 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                             setFlashcardModalOpen(true);
                           }}
                           className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 hover:text-black bg-black/[0.04] hover:bg-black/[0.08] px-2.5 py-1 rounded-lg border border-black/5 transition cursor-pointer"
-                          title={`Xem bộ thẻ Flashcard 3D của ${lesson.label}`}
+                          title={`Xem Flashcards của ${lesson.label}`}
                         >
-                          <span>🃏 Ôn thẻ ({lesson.label})</span>
+                          <span>🃏 Flashcards</span>
                         </button>
                       </div>
                       <span className="text-xs font-semibold text-[#111111] flex items-center gap-1 group-hover:translate-x-0.5 transition">
@@ -2250,7 +2239,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                 className="flex items-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl bg-[#141414] hover:bg-black text-white shadow-sm transition cursor-pointer"
               >
                 <Sparkles className="size-3.5 text-emerald-400" />
-                <span>🎉 Mở Bộ thẻ Flashcard 3D ({currentLesson.label}) →</span>
+                <span>🎉 Mở Flashcards →</span>
               </button>
 
               <div className="flex items-center gap-2">

@@ -2,10 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
-  ArrowRight,
-  BookOpen,
-  Check,
   ChevronLeft,
   ChevronRight,
   Copy,
@@ -34,7 +30,7 @@ export function FlashcardDeckModal({
   const [masteredCards, setMasteredCards] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState<boolean>(false);
 
-  // Cập nhật lesson id khi modal được mở lại với initialLessonId mới
+  // Khi modal mở với initialLessonId mới, luôn reset về thẻ đầu tiên và cô lập đúng bài học đó
   useEffect(() => {
     if (open) {
       setActiveLessonId(initialLessonId);
@@ -62,9 +58,9 @@ export function FlashcardDeckModal({
   }, [activeLessonId]);
 
   const currentCard = deck[currentCardIndex] || deck[0];
-  const isCardMastered = Boolean(masteredCards[currentCard.id]);
+  const isCardMastered = Boolean(masteredCards[currentCard?.id]);
 
-  // Phím tắt bàn phím: Left/Right đổi thẻ, Space/Enter lật thẻ, Esc đóng
+  // Phím tắt: Left/Right chuyển thẻ, Space/Enter lật thẻ, Esc đóng modal
   useEffect(() => {
     if (!open) return;
 
@@ -102,12 +98,6 @@ export function FlashcardDeckModal({
     setCurrentCardIndex((idx) => (idx - 1 + deck.length) % deck.length);
   }
 
-  function handleSelectLesson(id: number) {
-    setActiveLessonId(id);
-    setCurrentCardIndex(0);
-    setIsFlipped(false);
-  }
-
   function toggleMastered(cardId: string) {
     setMasteredCards((prev) => {
       const next = { ...prev, [cardId]: !prev[cardId] };
@@ -119,11 +109,12 @@ export function FlashcardDeckModal({
   }
 
   function handleCopyCard() {
+    if (!currentCard) return;
     const text = `🃏 THẺ GHI NHỚ: ${currentCard.concept} (${currentCard.lessonLabel})
 Nguồn: ${currentCard.slideRange}
 ---
 ❓ Câu hỏi: ${currentCard.frontPrompt}
-🧠 Cơ chế gốc: ${currentCard.mechanism}
+🧠 Cơ chế cốt lõi: ${currentCard.mechanism}
 💡 Ẩn dụ đời thực: ${currentCard.analogy}
 ⚠️ Điểm cốt tử: ${currentCard.takeaway}`;
 
@@ -132,7 +123,7 @@ Nguồn: ${currentCard.slideRange}
     setTimeout(() => setCopied(false), 2000);
   }
 
-  if (!open) return null;
+  if (!open || !currentCard) return null;
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-5 bg-black/65 backdrop-blur-md animate-in fade-in duration-200">
@@ -164,56 +155,40 @@ Nguồn: ${currentCard.slideRange}
             "0 30px 60px -15px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.5) inset",
         }}
       >
-        {/* TOP BAR: Header & Tabs */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-black/[0.08] bg-white/70 backdrop-blur-sm">
-          <div className="flex items-center gap-2">
+        {/* TOP BAR: Chỉ hiển thị bài học hiện tại, không có tab chuyển Day */}
+        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-black/[0.08] bg-white/75 backdrop-blur-sm">
+          <div className="flex items-center gap-2.5">
             <div className="grid size-8 place-items-center rounded-xl bg-black text-white shadow-xs">
               <Layers className="size-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-[#111111] flex items-center gap-2">
-                <span>Bộ thẻ Flashcard 3D</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  {deck.length} Khái niệm
+              <h2 className="text-sm sm:text-base font-bold text-[#111111] flex items-center gap-2">
+                <span>
+                  Flashcards · {activeLessonId === 1 ? "Day 1: AI & LLM Foundation" : "Day 2: Xác định bài toán AI"}
                 </span>
               </h2>
+              <p className="text-[11px] text-[#666666] font-medium hidden sm:block">
+                {activeLessonId === 1
+                  ? "Cốt lõi LLM, Next-token, Attention, Context & RAG"
+                  : "Google PAIR, 3 Cấp độ Rule-Workflow-Agent & HITL"}
+              </p>
             </div>
           </div>
 
-          {/* TAB CHỌN BÀI HỌC */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/5 border border-black/5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+              {deck.length} thẻ
+            </span>
+
             <button
               type="button"
-              onClick={() => handleSelectLesson(1)}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
-                activeLessonId === 1
-                  ? "bg-white text-black shadow-xs"
-                  : "text-[#666666] hover:text-black"
-              }`}
+              onClick={onClose}
+              className="grid size-8 place-items-center rounded-full bg-black/5 hover:bg-black/10 text-[#444444] transition cursor-pointer"
+              aria-label="Đóng"
             >
-              Day 1: Foundation
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSelectLesson(2)}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
-                activeLessonId === 2
-                  ? "bg-white text-black shadow-xs"
-                  : "text-[#666666] hover:text-black"
-              }`}
-            >
-              Day 2: Bài toán AI
+              <X className="size-4" />
             </button>
           </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="grid size-8 place-items-center rounded-full bg-black/5 hover:bg-black/10 text-[#444444] transition"
-            aria-label="Đóng"
-          >
-            <X className="size-4" />
-          </button>
         </div>
 
         {/* BODY: THE 3D FLIP CARD CONTAINER */}
@@ -228,17 +203,17 @@ Nguồn: ${currentCard.slideRange}
             >
               {/* ──────────────── MẶT TRƯỚC (FRONT) ──────────────── */}
               <div
-                className="flip-card-face absolute inset-0 rounded-[24px] border border-black/10 bg-white p-6 sm:p-8 flex flex-col justify-between shadow-sm overflow-hidden"
+                className="flip-card-face absolute inset-0 rounded-[24px] border border-black/10 bg-white p-5 sm:p-7 flex flex-col justify-between shadow-sm overflow-hidden"
                 style={{
                   background:
                     "linear-gradient(145deg, #ffffff 0%, #f9fafb 100%)",
                 }}
               >
-                {/* Góc trang trí nền */}
+                {/* Ánh sáng trang trí nền */}
                 <div className="absolute -top-12 -right-12 size-36 rounded-full bg-emerald-500/5 blur-2xl pointer-events-none" />
 
                 <div>
-                  <div className="flex items-center justify-between gap-2 mb-4">
+                  <div className="flex items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-2">
                       <span className="text-2xl">{currentCard.icon}</span>
                       <span
@@ -261,11 +236,11 @@ Nguồn: ${currentCard.slideRange}
                     </div>
                   </div>
 
-                  <h3 className="text-xl sm:text-2xl font-bold text-[#111111] leading-snug mt-2">
+                  <h3 className="text-lg sm:text-xl font-bold text-[#111111] leading-snug mt-3">
                     {currentCard.frontPrompt}
                   </h3>
 
-                  <div className="mt-4 p-3.5 rounded-xl bg-[#f5f6f4] border border-black/5">
+                  <div className="mt-4 p-3 rounded-xl bg-[#f5f6f4] border border-black/5">
                     <p className="text-xs text-[#666666] flex items-start gap-2">
                       <Sparkles className="size-3.5 text-amber-600 shrink-0 mt-0.5" />
                       <span>{currentCard.frontHint}</span>
@@ -274,7 +249,7 @@ Nguồn: ${currentCard.slideRange}
                 </div>
 
                 {/* Hướng dẫn lật ở mặt trước */}
-                <div className="pt-4 border-t border-black/5 flex items-center justify-between text-xs text-[#888888]">
+                <div className="pt-3 border-t border-black/5 flex items-center justify-between text-xs text-[#888888]">
                   <span className="flex items-center gap-1.5 font-medium text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full">
                     <RotateCw className="size-3 animate-spin duration-1000" />
                     Chạm hoặc bấm Space để lật xem đáp án 3D
@@ -306,10 +281,10 @@ Nguồn: ${currentCard.slideRange}
                     </span>
                   </div>
 
-                  <div className="space-y-3 text-xs">
+                  <div className="space-y-2.5 text-xs">
                     {/* Cơ chế */}
-                    <div className="p-3 rounded-xl bg-white border border-emerald-900/10 shadow-xs">
-                      <p className="font-bold text-[#111111] mb-1 flex items-center gap-1.5">
+                    <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-emerald-900/10 shadow-xs">
+                      <p className="font-bold text-[#111111] mb-0.5 flex items-center gap-1.5">
                         <span>🧠 Cơ chế kỹ thuật gốc:</span>
                       </p>
                       <p className="text-[#333333] leading-relaxed">
@@ -318,9 +293,9 @@ Nguồn: ${currentCard.slideRange}
                     </div>
 
                     {/* Ẩn dụ */}
-                    <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-900/10">
-                      <p className="font-bold text-emerald-900 mb-1 flex items-center gap-1.5">
-                        <span>💡 Ẩn dụ đời thực dễ nhớ:</span>
+                    <div className="p-2.5 sm:p-3 rounded-xl bg-emerald-50/70 border border-emerald-900/10">
+                      <p className="font-bold text-emerald-900 mb-0.5 flex items-center gap-1.5">
+                        <span>💡 Ẩn dụ đời thực:</span>
                       </p>
                       <p className="italic text-emerald-950 leading-relaxed">
                         &ldquo;{currentCard.analogy}&rdquo;
@@ -328,8 +303,8 @@ Nguồn: ${currentCard.slideRange}
                     </div>
 
                     {/* Điểm cốt tử */}
-                    <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-900/10">
-                      <p className="font-bold text-amber-900 mb-1 flex items-center gap-1.5">
+                    <div className="p-2.5 sm:p-3 rounded-xl bg-amber-50/70 border border-amber-900/10">
+                      <p className="font-bold text-amber-900 mb-0.5 flex items-center gap-1.5">
                         <span>⚠️ Điểm cốt tử cần nhớ:</span>
                       </p>
                       <p className="text-amber-950 leading-relaxed">
@@ -340,7 +315,7 @@ Nguồn: ${currentCard.slideRange}
                 </div>
 
                 {/* Hướng dẫn lật lại ở mặt sau */}
-                <div className="pt-3 border-t border-black/5 flex items-center justify-between text-xs text-[#888888] mt-2">
+                <div className="pt-2.5 border-t border-black/5 flex items-center justify-between text-xs text-[#888888] mt-2">
                   <span className="text-[11px] text-[#666666]">
                     Nguồn: {currentCard.slideRange}
                   </span>
@@ -353,14 +328,14 @@ Nguồn: ${currentCard.slideRange}
           </div>
         </div>
 
-        {/* BOTTOM CONTROLLER: Navigation, Counter, Actions */}
+        {/* BOTTOM CONTROLLER: Điều hướng & Chỉ số thẻ */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-t border-black/[0.08] bg-white/75 backdrop-blur-sm">
           {/* Nút đánh dấu đã thuộc & Copy */}
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => toggleMastered(currentCard.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer ${
                 isCardMastered
                   ? "bg-amber-50 text-amber-800 border-amber-300"
                   : "bg-white text-[#555555] border-black/10 hover:bg-black/5"
@@ -379,7 +354,7 @@ Nguồn: ${currentCard.slideRange}
             <button
               type="button"
               onClick={handleCopyCard}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white text-[#555555] border border-black/10 hover:bg-black/5 transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white text-[#555555] border border-black/10 hover:bg-black/5 transition cursor-pointer"
               title="Sao chép nội dung thẻ này"
             >
               <Copy className="size-3.5" />
@@ -388,19 +363,19 @@ Nguồn: ${currentCard.slideRange}
           </div>
 
           {/* Điều hướng chuyển thẻ Trước / Sau */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handlePrev}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-black/10 hover:bg-black/5 text-[#222222] transition"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-black/10 hover:bg-black/5 text-[#222222] transition cursor-pointer"
               aria-label="Thẻ trước"
             >
               <ChevronLeft className="size-4" />
               <span className="hidden sm:inline">Trước</span>
             </button>
 
-            {/* Chấm tròn chỉ số thẻ */}
-            <div className="flex items-center gap-1.5 px-2">
+            {/* Chấm tròn chỉ số thẻ (tối đa 12 chấm) */}
+            <div className="flex items-center gap-1 px-1">
               {deck.map((_, idx) => (
                 <button
                   key={idx}
@@ -409,9 +384,9 @@ Nguồn: ${currentCard.slideRange}
                     setIsFlipped(false);
                     setCurrentCardIndex(idx);
                   }}
-                  className={`size-2 rounded-full transition-all ${
+                  className={`size-2 rounded-full transition-all cursor-pointer ${
                     idx === currentCardIndex
-                      ? "bg-black w-5"
+                      ? "bg-black w-4"
                       : "bg-black/20 hover:bg-black/40"
                   }`}
                   aria-label={`Chuyển tới thẻ ${idx + 1}`}
@@ -426,7 +401,7 @@ Nguồn: ${currentCard.slideRange}
             <button
               type="button"
               onClick={handleNext}
-              className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-[#141414] text-white hover:bg-black transition shadow-xs"
+              className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-[#141414] text-white hover:bg-black transition shadow-xs cursor-pointer"
               aria-label="Thẻ tiếp theo"
             >
               <span className="hidden sm:inline">Tiếp</span>
