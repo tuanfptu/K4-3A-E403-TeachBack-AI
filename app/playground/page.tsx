@@ -39,10 +39,7 @@ import {
 import { getLesson } from "@/lib/lesson-data";
 import { AuthModal } from "@/components/auth-modal";
 import { auth, signOut, type User } from "@/lib/firebase";
-import {
-  loadLearnerQuestionMemory,
-  saveLearnerQuestionMemory,
-} from "@/lib/learner-memory";
+import { saveLearnerQuestionMemory } from "@/lib/learner-memory";
 
 // =========================================================================
 // 1. DATA CONTRACTS & LESSON DEFINITIONS
@@ -458,7 +455,7 @@ export default function TeachAIFlowPlayground() {
   const [sourceOpen, setSourceOpen] = useState(false);
   const [masteredPointIds, setMasteredPointIds] = useState<string[]>([]);
   const [targetedHint, setTargetedHint] = useState<string>("");
-  const [memoryHydrated, setMemoryHydrated] = useState(false);
+  const [sessionHasAssessment, setSessionHasAssessment] = useState(false);
 
   // Model Selection
   const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
@@ -564,29 +561,7 @@ export default function TeachAIFlowPlayground() {
   const activeSlideImage = `/slides/day-${currentLesson.id}/slide-${activeSlideNumber}.jpg`;
 
   useEffect(() => {
-    if (!currentUser || screen !== "session") return;
-    let cancelled = false;
-    setMemoryHydrated(false);
-    void loadLearnerQuestionMemory(
-      currentUser.uid,
-      selectedLessonId,
-      currentQuestion.id
-    ).then((memory) => {
-      if (cancelled) return;
-      const allowedIds = new Set(currentQuestion.requiredPoints.map((point) => point.id));
-      const restoredIds = (memory?.masteredPointIds ?? []).filter((id) => allowedIds.has(id));
-      setMasteredPointIds(restoredIds);
-      setAttempts(memory?.attempts ?? 0);
-      setPhase(restoredIds.length === currentQuestion.requiredPoints.length ? "understood" : "answering");
-      setMemoryHydrated(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentQuestion, currentUser, screen, selectedLessonId]);
-
-  useEffect(() => {
-    if (!currentUser || screen !== "session" || !memoryHydrated) return;
+    if (!currentUser || screen !== "session" || !sessionHasAssessment) return;
     const timer = window.setTimeout(() => {
       void saveLearnerQuestionMemory(
         currentUser.uid,
@@ -596,7 +571,7 @@ export default function TeachAIFlowPlayground() {
       );
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [attempts, currentQuestion.id, currentUser, masteredPointIds, memoryHydrated, screen, selectedLessonId]);
+  }, [attempts, currentQuestion.id, currentUser, masteredPointIds, screen, selectedLessonId, sessionHasAssessment]);
 
   // Cuộn tự động tin nhắn mới
   useEffect(() => {
@@ -668,7 +643,7 @@ export default function TeachAIFlowPlayground() {
     setActiveSlideIndex(0);
     setMasteredPointIds([]);
     setTargetedHint("");
-    setMemoryHydrated(false);
+    setSessionHasAssessment(false);
 
     const targetLesson =
       TEACH_LESSONS.find((item) => item.id === lessonId) ?? TEACH_LESSONS[0];
@@ -736,6 +711,8 @@ export default function TeachAIFlowPlayground() {
       );
       if (countedAttempt && isNonAssessment) {
         setAttempts((value) => Math.max(0, value - 1));
+      } else if (countedAttempt) {
+        setSessionHasAssessment(true);
       }
       const isSwitch = Boolean(data.meta?.is_topic_switch);
       const switchTarget = data.meta?.switch_target;
@@ -810,7 +787,7 @@ export default function TeachAIFlowPlayground() {
     setSourceOpen(false);
     setMasteredPointIds([]);
     setTargetedHint("");
-    setMemoryHydrated(false);
+    setSessionHasAssessment(false);
     setSlideOpen(false);
     setActiveSlideIndex(0);
     setChatTurns([
