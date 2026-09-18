@@ -52,6 +52,7 @@ export interface TrustedResearchSource {
   url: string;
   snippet: string;
   venue: "NeurIPS" | "ICML" | "ICLR" | "ACL" | "IEEE";
+  rank: "A*" | "A";
   credibilityScore: number;
   credibilityReasons: string[];
   isReachable: boolean;
@@ -1372,16 +1373,20 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                             )}
 
                             {turn.researchSources && turn.researchSources.length > 0 && (
-                              <div className="mt-2 space-y-2 rounded-xl border border-violet-200 bg-violet-50/80 p-3">
-                                <div className="flex items-center justify-between gap-3">
-                                  <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-violet-800">
-                                    Paper đã kiểm chứng
+                              <details className="group mt-2 rounded-xl border border-violet-200 bg-violet-50/80">
+                                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-left">
+                                  <span className="min-w-0">
+                                    <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-violet-800">
+                                      Paper kiểm chứng thêm
+                                    </span>
+                                    <span className="mt-0.5 block text-xs font-semibold text-violet-950">
+                                      {turn.researchSources.length} nguồn A/A* · link đã kiểm tra
+                                    </span>
                                   </span>
-                                  <span className="text-[10px] font-medium text-violet-700">
-                                    Link còn hoạt động
-                                  </span>
-                                </div>
-                                {turn.researchSources.map((source) => (
+                                  <ChevronDown className="size-4 shrink-0 text-violet-700 transition group-open:rotate-180" />
+                                </summary>
+                                <div className="space-y-2 border-t border-violet-200/80 p-3">
+                                  {turn.researchSources.map((source) => (
                                   <a
                                     key={source.url}
                                     href={source.url}
@@ -1395,7 +1400,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                                           {source.venue}
                                         </span>
                                         <span className="text-[10px] font-semibold text-emerald-700">
-                                          Uy tín {source.credibilityScore}/100
+                                          Hạng {source.rank} · {source.credibilityScore}/100
                                         </span>
                                       </span>
                                       <span className="mt-1 block line-clamp-2 text-xs font-semibold leading-5 text-violet-950">
@@ -1407,8 +1412,9 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                                     </span>
                                     <ExternalLink className="mt-1 size-3.5 shrink-0 text-violet-700 transition group-hover:-translate-y-0.5" />
                                   </a>
-                                ))}
-                              </div>
+                                  ))}
+                                </div>
+                              </details>
                             )}
 
                             {/* Nút hành động nếu là trường hợp hỏi khéo chuyển chủ đề */}
@@ -1516,7 +1522,7 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                   style={{ opacity: 1, background: "rgba(255,255,255,.82)" }}
                 >
                   <Lightbulb className="size-3.5 text-amber-600" />
-                  Need a hint?
+                  Gợi ý theo ngữ cảnh
                   <ChevronDown className={`size-3 transition ${hintOpen ? "rotate-180" : ""}`} />
                 </button>
                 <button
@@ -1883,6 +1889,21 @@ Nguồn giáo trình: ${currentLesson.citationCode}`;
                         {masteredPointIds.length}/{currentQuestion.requiredPoints.length}
                       </p>
                     </div>
+                  </div>
+                  <div className="space-y-1.5 rounded-xl bg-white/45 p-2.5">
+                    {currentQuestion.requiredPoints.map((point) => {
+                      const complete = masteredPointIds.includes(point.id);
+                      return (
+                        <div key={point.id} className="flex items-center gap-2 text-[10px]">
+                          <span className={`grid size-4 shrink-0 place-items-center rounded-full ${complete ? "bg-emerald-600 text-white" : "border border-black/15 bg-white/70 text-transparent"}`}>
+                            <Check className="size-2.5" strokeWidth={3} />
+                          </span>
+                          <span className={complete ? "font-semibold text-emerald-800" : "text-[#66706c]"}>
+                            {point.title}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </aside>

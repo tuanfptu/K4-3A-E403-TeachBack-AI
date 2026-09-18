@@ -56,12 +56,6 @@ export async function POST(request: Request) {
     );
     const citation = question.source.range;
 
-    if (isHintRequested) {
-      return NextResponse.json(
-        buildHintResponse(question, alreadyMasteredPointIds, startTime)
-      );
-    }
-
     const dynamicGrounding = getDynamicGroundingContext(question.concept);
     let supplementalGrounding = dynamicGrounding.chunks
       .slice(0, 2)
@@ -79,12 +73,13 @@ export async function POST(request: Request) {
       );
       const webResult = await searchWebKnowledge(
         `${question.concept} machine learning AI`,
-        { maxResults: 2 }
+        { maxResults: 5 }
       );
       if (webResult.found) {
         researchSources = webResult.items;
         supplementalGrounding = `[NGUỒN NGHIÊN CỨU ĐÃ KIỂM CHỨNG (${webResult.source})]:\n${webResult.summary}`;
-        activeCitation = `${citation} + ${researchSources.map((source) => source.venue).join(", ")}`;
+        const venues = [...new Set(researchSources.map((source) => source.venue))];
+        activeCitation = `${citation} + ${venues.join(", ")}`;
       }
     }
 
@@ -114,7 +109,9 @@ export async function POST(request: Request) {
       ...chatHistory,
       {
         role: "user",
-        content: `Câu trả lời mới cần xử lý:\n${userMessage}${
+        content: isHintRequested
+          ? `NGƯỜI HỌC XIN GỢI Ý. Dựa vào toàn bộ lịch sử, các tiêu chí đã nắm và tiêu chí còn thiếu, hãy tạo một gợi ý mới đúng chỗ họ đang vướng. Không lặp câu gợi ý trước, không đưa đáp án hoàn chỉnh và không công nhận thêm tiêu chí. Chỉ dẫn dắt bằng một ví dụ nhỏ hoặc một câu hỏi dễ hơn.`
+          : `Câu trả lời mới cần xử lý:\n${userMessage}${
           isLearnerSupportUtterance(userMessage)
             ? "\n\nLƯU Ý SƯ PHẠM: Đây là tín hiệu người học chưa hiểu hoặc chưa chắc, không phải evidence để công nhận thêm ý mới. Hãy giải thích lại bằng một ví dụ ngắn, rồi hỏi một câu kiểm tra dễ hơn."
             : ""
@@ -131,13 +128,15 @@ export async function POST(request: Request) {
       process.env.OPENROUTER_FALLBACK_MODEL || "openai/gpt-4o-mini";
 
     if (!apiKey || apiKey === "your_openrouter_api_key_here") {
-      const localResponse = buildLocalFallbackResponse(
-        question,
-        userMessage,
-        alreadyMasteredPointIds,
-        allowedPointIds,
-        startTime
-      );
+      const localResponse = isHintRequested
+        ? buildHintResponse(question, alreadyMasteredPointIds, chatHistory, startTime)
+        : buildLocalFallbackResponse(
+            question,
+            userMessage,
+            alreadyMasteredPointIds,
+            allowedPointIds,
+            startTime
+          );
       return NextResponse.json(
         withResearchSources(localResponse, activeCitation, researchSources)
       );
@@ -171,13 +170,15 @@ export async function POST(request: Request) {
           "[TeachBack AI] Remote models unavailable; using local lesson rubric:",
           fallbackError
         );
-        const localResponse = buildLocalFallbackResponse(
-            question,
-            userMessage,
-            alreadyMasteredPointIds,
-            allowedPointIds,
-            startTime
-          );
+        const localResponse = isHintRequested
+          ? buildHintResponse(question, alreadyMasteredPointIds, chatHistory, startTime)
+          : buildLocalFallbackResponse(
+              question,
+              userMessage,
+              alreadyMasteredPointIds,
+              allowedPointIds,
+              startTime
+            );
         return NextResponse.json(
           withResearchSources(localResponse, activeCitation, researchSources)
         );
@@ -185,13 +186,15 @@ export async function POST(request: Request) {
     }
 
     const parsed = parseModelResponse(rawResultText, activeCitation);
-    const normalized = normalizeEvaluation({
-      parsed,
-      question,
-      learnerMessage: userMessage,
-      alreadyMasteredPointIds,
-      allowedPointIds,
-    });
+    const normalized = isHintRequested
+      ? normalizeHintEvaluation(parsed, question, alreadyMasteredPointIds)
+      : normalizeEvaluation({
+          parsed,
+          question,
+          learnerMessage: userMessage,
+          alreadyMasteredPointIds,
+          allowedPointIds,
+        });
 
     return NextResponse.json({
       ...normalized,
@@ -255,6 +258,15 @@ function buildLocalFallbackResponse(
   const answerTokens = meaningfulTokens(clean);
   const matchedPoints = question.requiredPoints.filter((point) => {
     if (!allowedPointIds.has(point.id)) return false;
+    if (point.id === "concept_and_mechanism") {
+      return clean.length >= 45 && /(là|nghĩa là|hoạt động|cơ chế|bằng cách|dựa trên|gồm|quy trình|đầu tiên|sau đó|vì)/i.test(clean);
+    }
+    if (point.id === "practical_example") {
+      return /(ví dụ|chẳng hạn|giống như|tương tự|hãy tưởng tượng|trong trường hợp|thực tế|ví von)/i.test(clean);
+    }
+    if (point.id === "improvement_or_application") {
+      return /(khắc phục|cải thiện|cải tiến|giảm rủi ro|hạn chế|nên|cần|giải pháp|kiểm chứng|kiểm tra|giám sát|tối ưu|áp dụng)/i.test(clean);
+    }
     if (point.id === "how_might_we_solve") {
       return /(giải quyết|giải|xử lý).{0,25}(vấn đề|bài toán)|how might we solve/i.test(clean);
     }
@@ -417,6 +429,7 @@ function detectSemanticPointIds(question: Question, value: string): string[] {
 function buildHintResponse(
   question: Question,
   alreadyMasteredPointIds: string[],
+  chatHistory: ChatMessage[],
   startTime: number
 ): AnswerEvaluationResponse & { meta: Record<string, unknown> } {
   const masteredSet = new Set(alreadyMasteredPointIds);
@@ -425,7 +438,16 @@ function buildHintResponse(
   );
   const nextPoint = missingPoints[0];
   const questionMastered = missingPoints.length === 0;
-  const hint = nextPoint?.hint || null;
+  const lastLearnerMessage = [...chatHistory]
+    .reverse()
+    .find((message) => message.role === "user")
+    ?.content.trim();
+  const learnerContext = lastLearnerMessage
+    ? `Ở lượt trước bạn đang nói “${lastLearnerMessage.slice(0, 100)}”. `
+    : "";
+  const hint = nextPoint
+    ? `${learnerContext}Hãy thử bổ sung riêng phần “${nextPoint.title}” của ${question.concept} bằng một câu ngắn theo cách bạn hiểu.`
+    : null;
 
   return {
     bot_response: questionMastered
@@ -454,6 +476,75 @@ function buildHintResponse(
       citation: question.source.range,
     },
   };
+}
+
+function normalizeHintEvaluation(
+  parsed: Partial<AnswerEvaluationResponse>,
+  question: Question,
+  alreadyMasteredPointIds: string[]
+): AnswerEvaluationResponse {
+  const masteredSet = new Set(alreadyMasteredPointIds);
+  const missingPoints = question.requiredPoints.filter(
+    (point) => !masteredSet.has(point.id)
+  );
+  const questionMastered = missingPoints.length === 0;
+  const generatedHint =
+    typeof parsed.hint === "string" && parsed.hint.trim()
+      ? parsed.hint.trim()
+      : null;
+  const botResponse =
+    typeof parsed.bot_response === "string" &&
+    parsed.bot_response.trim() &&
+    !parsed.bot_response.trim().startsWith("{")
+      ? parsed.bot_response.trim()
+      : generatedHint
+        ? `Mình gợi mở một bước nhé: ${generatedHint}`
+        : `Mình sẽ không bật mí đáp án. Bạn thử tập trung vào phần “${missingPoints[0]?.title || question.concept}” và nói một ý nhỏ theo cách mình hiểu nhé.`;
+
+  return {
+    bot_response: questionMastered
+      ? "Bạn đã làm rõ đủ cả ba tiêu chí và có thể sang câu tiếp theo."
+      : botResponse,
+    response_mode: questionMastered
+      ? "mastered"
+      : alreadyMasteredPointIds.length > 0
+        ? "partial"
+        : "needs_revision",
+    understanding_level: questionMastered
+      ? 3
+      : alreadyMasteredPointIds.length > 0
+        ? 2
+        : 1,
+    question_mastered: questionMastered,
+    mastered_point_ids: alreadyMasteredPointIds,
+    missing_point_ids: missingPoints.map((point) => point.id),
+    evaluation: {
+      correct_points: [],
+      incorrect_claims: [],
+      newly_mastered_point_ids: [],
+      invalidated_point_ids: [],
+    },
+    feedback_summary: {
+      what_you_did_well: "",
+      missing_or_vague: missingPoints[0]?.title || "",
+    },
+    hint: generatedHint,
+    citation: question.source.range,
+  };
+
+  add(
+    "concept_and_mechanism",
+    clean.length >= 45 &&
+      /(là|nghĩa là|hoạt động|cơ chế|bằng cách|dựa trên|gồm|quy trình|đầu tiên|sau đó|vì)/i.test(clean)
+  );
+  add(
+    "practical_example",
+    /(ví dụ|chẳng hạn|giống như|tương tự|hãy tưởng tượng|trong trường hợp|thực tế|ví von)/i.test(clean)
+  );
+  add(
+    "improvement_or_application",
+    /(khắc phục|cải thiện|cải tiến|giảm rủi ro|hạn chế|nên|cần|giải pháp|kiểm chứng|kiểm tra|giám sát|tối ưu|áp dụng)/i.test(clean)
+  );
 }
 
 function buildConfigurationResponse(

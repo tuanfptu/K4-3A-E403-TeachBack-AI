@@ -423,4 +423,33 @@ export const lessons: Lesson[] = [
   },
 ];
 
+/**
+ * Mọi câu TeachBack dùng cùng một chuẩn 3 phần dễ hiểu. Nội dung chi tiết của
+ * từng bài vẫn nằm trong referenceAnswer/source để LLM đối chiếu theo ngữ cảnh.
+ */
+for (const lesson of lessons) {
+  for (const question of lesson.questions) {
+    question.requiredPoints = [
+      {
+        id: "concept_and_mechanism",
+        title: "Khái niệm & cách hoạt động",
+        description: `Giải thích đúng ${question.concept} là gì và cơ chế hoặc quan hệ cốt lõi của nó theo bài học.`,
+        hint: "Giúp người học tự nói lại khái niệm và cơ chế bằng lời của họ; không đọc lại đáp án mẫu.",
+      },
+      {
+        id: "practical_example",
+        title: "Ví dụ minh họa",
+        description: `Đưa một ví dụ, tình huống hoặc phép so sánh phù hợp để minh họa ${question.concept}.`,
+        hint: "Gợi mở một tình huống gần gũi dựa trên điều người học vừa nói, nhưng để họ tự hoàn thành ví dụ.",
+      },
+      {
+        id: "improvement_or_application",
+        title: "Khắc phục / cải tiến",
+        description: `Nêu cách áp dụng, khắc phục hạn chế, giảm rủi ro hoặc cải tiến khi sử dụng ${question.concept}.`,
+        hint: "Hỏi người học sẽ làm gì để áp dụng tốt hơn hoặc giảm rủi ro trong một tình huống thực tế.",
+      },
+    ];
+  }
+}
+
 export const getLesson = (id: number) => lessons.find((lesson) => lesson.id === id) ?? lessons[0];

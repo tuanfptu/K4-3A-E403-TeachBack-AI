@@ -10,6 +10,7 @@ export interface WebSearchResultItem {
   snippet: string;
   relevanceScore?: number;
   venue: TrustedVenue;
+  rank: "A*" | "A";
   credibilityScore: number;
   credibilityReasons: string[];
   isReachable: boolean;
@@ -37,17 +38,18 @@ type VenueRule = {
   hosts: string[];
   sharedHostRequires?: RegExp;
   score: number;
+  rank: "A*" | "A";
   reason: string;
 };
 
 const VENUE_RULES: VenueRule[] = [
-  { venue: "NeurIPS", hosts: ["proceedings.neurips.cc", "papers.nips.cc", "neurips.cc"], score: 99, reason: "Nguồn chính thức của hội nghị NeurIPS." },
-  { venue: "ICML", hosts: ["icml.cc"], score: 98, reason: "Nguồn chính thức của hội nghị ICML." },
-  { venue: "ICML", hosts: ["proceedings.mlr.press"], sharedHostRequires: /\bicml\b|international conference on machine learning/i, score: 97, reason: "Kỷ yếu ICML trên Proceedings of Machine Learning Research." },
-  { venue: "ICLR", hosts: ["iclr.cc"], score: 98, reason: "Nguồn chính thức của hội nghị ICLR." },
-  { venue: "ICLR", hosts: ["openreview.net"], sharedHostRequires: /\biclr\b|international conference on learning representations/i, score: 96, reason: "Bài ICLR trên nền tảng phản biện chính thức OpenReview." },
-  { venue: "ACL", hosts: ["aclanthology.org", "aclweb.org"], score: 98, reason: "Nguồn chính thức của ACL Anthology/ACL." },
-  { venue: "IEEE", hosts: ["ieeexplore.ieee.org", "computer.org", "ieee.org"], score: 97, reason: "Nguồn xuất bản hoặc thư viện số chính thức của IEEE." },
+  { venue: "NeurIPS", hosts: ["proceedings.neurips.cc", "papers.nips.cc", "neurips.cc"], rank: "A*", score: 99, reason: "Nguồn chính thức của hội nghị NeurIPS (hạng A*)." },
+  { venue: "ICML", hosts: ["icml.cc"], rank: "A*", score: 98, reason: "Nguồn chính thức của hội nghị ICML (hạng A*)." },
+  { venue: "ICML", hosts: ["proceedings.mlr.press"], sharedHostRequires: /\bicml\b|international conference on machine learning/i, rank: "A*", score: 97, reason: "Kỷ yếu ICML hạng A* trên Proceedings of Machine Learning Research." },
+  { venue: "ICLR", hosts: ["iclr.cc"], rank: "A*", score: 98, reason: "Nguồn chính thức của hội nghị ICLR (hạng A*)." },
+  { venue: "ICLR", hosts: ["openreview.net"], sharedHostRequires: /\biclr\b|international conference on learning representations/i, rank: "A*", score: 96, reason: "Bài ICLR hạng A* trên nền tảng phản biện chính thức OpenReview." },
+  { venue: "ACL", hosts: ["aclanthology.org", "aclweb.org"], rank: "A*", score: 98, reason: "Nguồn chính thức của ACL Anthology/ACL (hạng A*)." },
+  { venue: "IEEE", hosts: ["ieeexplore.ieee.org", "computer.org", "ieee.org"], rank: "A", score: 97, reason: "Nguồn xuất bản hoặc thư viện số chính thức của IEEE (tối thiểu hạng A trong lát cắt này)." },
 ];
 
 const TRUSTED_SEARCH_DOMAINS = [...new Set(VENUE_RULES.flatMap((rule) => rule.hosts))];
@@ -128,6 +130,7 @@ async function verifyTrustedItems(rawItems: RawSearchItem[], maxResults: number)
       snippet: item.snippet.slice(0, 700),
       relevanceScore: item.relevanceScore,
       venue: rule.venue,
+      rank: rule.rank,
       credibilityScore: rule.score,
       credibilityReasons: [rule.reason, "URL đã được kiểm tra và còn truy cập được."],
       isReachable: true,
@@ -144,7 +147,7 @@ async function verifyTrustedItems(rawItems: RawSearchItem[], maxResults: number)
 
 function buildVerifiedSummary(items: WebSearchResultItem[]): string {
   return items.map((item) =>
-    `[${item.venue} · uy tín ${item.credibilityScore}/100] ${item.title}\n${item.snippet}\nURL: ${item.url}`
+    `[${item.venue} · hạng ${item.rank} · uy tín ${item.credibilityScore}/100] ${item.title}\n${item.snippet}\nURL: ${item.url}`
   ).join("\n\n").slice(0, 5000);
 }
 
