@@ -159,7 +159,9 @@ function buildVerifiedSummary(items: WebSearchResultItem[]): string {
 
 async function searchWithTavily(query: string, apiKey: string, maxResults: number): Promise<WebSearchToolResult | null> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  // Advanced search can take longer than a normal HTTP lookup, especially on
+  // the first request while Tavily builds ranked results across several venues.
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
   try {
     const response = await fetch("https://api.tavily.com/search", {
       method: "POST",
