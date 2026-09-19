@@ -1,5 +1,5 @@
 # TeachBack AI
-Link DEMO: [DEMO](https://drive.google.com/drive/folders/1-MdLZRFAOlcJFWZJ7FEwgde8ip1G876v)
+VIDEO DEMO: [DEMO](https://drive.google.com/drive/folders/1-MdLZRFAOlcJFWZJ7FEwgde8ip1G876v)
 
 **An evidence-grounded AI tutor that helps learners understand by explaining concepts in their own words.**
 
